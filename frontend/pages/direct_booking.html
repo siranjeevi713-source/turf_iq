@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Direct Turf Booking</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+  .turf-card { cursor:pointer; border-radius:10px; border:1px solid var(--border); padding:1.25rem; margin-bottom:0.75rem; transition:all 0.2s; }
+  .turf-card:hover, .turf-card.selected { border-color:var(--accent); background:rgba(0,210,106,0.04); }
+  .summary-row { display:flex; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid #222; font-size:0.9rem; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <span class="navbar-brand">TURFFIQ</span>
+  <a href="dashboard.html" style="color:#aaa;font-size:0.9rem;text-decoration:none">← Dashboard</a>
+</nav>
+<div class="page-wrap" style="max-width:680px">
+  <h2 style="margin-bottom:1.5rem">🏟️ Direct Turf Booking</h2>
+
+  <!-- Step 1: Select Turf -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <h3 class="section-title">1. Select Turf</h3>
+    <div style="display:flex;gap:1rem;margin-bottom:1rem">
+      <input id="locFilter" type="text" placeholder="City / Area" style="margin:0;flex:2">
+      <input id="dateFilter" type="date" style="margin:0;flex:1">
+      <button class="btn-secondary" style="white-space:nowrap" onclick="searchTurfs()">Search</button>
+    </div>
+    <div id="turfList"><p style="color:#888">Enter location & date to find turfs.</p></div>
+  </div>
+
+  <!-- Step 2: Slots (shown after turf select) -->
+  <div class="card" id="slotCard" style="display:none;margin-bottom:1.5rem">
+    <h3 class="section-title">2. Choose a 1-Hour Slot</h3>
+    <div class="slot-grid" id="slotGrid"></div>
+  </div>
+
+  <!-- Step 3: Services + Payment -->
+  <div class="card" id="payCard" style="display:none">
+    <h3 class="section-title">3. Services & Payment</h3>
+    <div style="display:flex;justify-content:space-between;padding:0.75rem;background:#111;border-radius:8px;margin-bottom:0.5rem">
+      <label style="margin:0;color:#fff"><input type="checkbox" class="svc" value="Water Bottles" data-price="20"> 💧 Water Bottles</label>
+      <span>+₹20</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:0.75rem;background:#111;border-radius:8px;margin-bottom:0.5rem">
+      <label style="margin:0;color:#fff"><input type="checkbox" class="svc" value="Snacks" data-price="50"> 🍿 Snacks</label>
+      <span>+₹50</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:0.75rem;background:#111;border-radius:8px;margin-bottom:0.5rem">
+      <label style="margin:0;color:#fff"><input type="checkbox" class="svc" value="Equipment" data-price="150"> 🎽 Equipment</label>
+      <span>+₹150</span>
+    </div>
+    <hr style="border-color:#333;margin:1rem 0">
+    <div class="summary-row"><span style="color:#aaa">Turf</span><strong id="sumTurf">–</strong></div>
+    <div class="summary-row"><span style="color:#aaa">Slot</span><strong id="sumSlot">–</strong></div>
+    <div class="summary-row"><span style="color:#aaa">Slot Cost</span><strong id="sumTurfCost">₹–</strong></div>
+    <div class="summary-row"><span style="color:#aaa">Services</span><strong id="sumSvc">---</strong></div>
+    <div style="display:flex;justify-content:space-between;margin-top:1rem;font-size:1.2rem">
+      <span>Total</span><strong style="color:var(--accent)" id="sumTotal">₹–</strong>
+    </div>
+    <p id="payErr" style="color:var(--danger);font-size:0.85rem;display:none;margin-top:0.5rem"></p>
+    <button class="btn-primary" id="payBtn" onclick="confirmBooking()">✅ Confirm & Pay</button>
+  </div>
+</div>
+
+<script src="../scripts/api.js"></script>
+<script>
+let sel = {};
+
+async function searchTurfs() {
+  const loc  = document.getElementById("locFilter").value.trim();
+  const date = document.getElementById("dateFilter").value;
+  sel.date = date;
+  const el = document.getElementById("turfList");
+  el.innerHTML = `<p style="color:#888">Searching…</p>`;
+  try {
+    const turfs = await apiCall("/turfs/");
+    const list = loc ? turfs.filter(t => t.location.toLowerCase().includes(loc.toLowerCase())) : turfs;
+    if (!list.length) { el.innerHTML = `<p style="color:#aaa">No turfs found.</p>`; return; }
+    el.innerHTML = list.map(t => `
+      <div class="turf-card" id="tc_${t._id}" onclick="selectTurf('${t._id}','${t.turf_name}','${t.location}')">
+        <strong>${t.turf_name}</strong>
+        <p style="color:#aaa;font-size:0.85rem">📍 ${t.location}</p>
+      </div>`).join("");
+  } catch(e) { el.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`; }
+}
+
+async function selectTurf(id, name, loc) {
+  document.querySelectorAll(".turf-card").forEach(c=>c.classList.remove("selected"));
+  document.getElementById("tc_"+id).classList.add("selected");
+  sel.turf = {id, name, loc};
+  document.getElementById("slotCard").style.display = "block";
+  document.getElementById("payCard").style.display  = "none";
+  const grid = document.getElementById("slotGrid");
+  grid.innerHTML = "<p style='color:#888'>Loading slots…</p>";
+  try {
+    const slots = await apiCall(`/slots/?turf_id=${id}&date=${sel.date}`);
+    if (!slots.length) { grid.innerHTML = "<p style='color:#aaa'>No slots available for this date.</p>"; return; }
+    grid.innerHTML = slots.map(s => `
+      <div class="slot-btn ${s.status}" id="sl_${s._id}" onclick="selectSlot('${s._id}','${s.label}',${s.price},'${s.status}')">
+        ${s.label}<br><small>₹${s.price}</small>
+      </div>`).join("");
+  } catch(e) { grid.innerHTML = `<p style='color:var(--danger)'>${e.message}</p>`; }
+}
+
+function selectSlot(id, label, price, status) {
+  if (status !== "available") { showToast("Slot "+status,"error"); return; }
+  document.querySelectorAll(".slot-btn").forEach(b=>b.classList.remove("selected"));
+  document.getElementById("sl_"+id).classList.add("selected");
+  sel.slot = {id, label, price};
+  document.getElementById("sumTurf").innerText = sel.turf.name;
+  document.getElementById("sumSlot").innerText = label;
+  document.getElementById("sumTurfCost").innerText = `₹${price}`;
+  updateTotal();
+  document.getElementById("payCard").style.display = "block";
+  document.querySelectorAll(".svc").forEach(cb => cb.onchange = updateTotal);
+}
+
+function updateTotal() {
+  let svc = 0;
+  document.querySelectorAll(".svc:checked").forEach(cb => svc += parseInt(cb.dataset.price));
+  const total = sel.slot.price + svc;
+  sel.total = total; sel.svcCost = svc;
+  document.getElementById("sumSvc").innerText   = `₹${svc}`;
+  document.getElementById("sumTotal").innerText = `₹${total}`;
+}
+
+async function confirmBooking() {
+  const btn = document.getElementById("payBtn");
+  const err = document.getElementById("payErr");
+  err.style.display = "none";
+  showLoading(btn, true);
+  const svcs = [...document.querySelectorAll(".svc:checked")].map(cb=>cb.value);
+  const user = getUser();
+  try {
+    const bookRes = await apiCall("/bookings/create", "POST", {
+      turf_id:        sel.turf.id,
+      slot_id:        sel.slot.id,
+      date:           sel.date,
+      services:       svcs,
+      total_cost:     sel.total,
+      payment_method: "single"
+    });
+    await apiCall("/payments/", "POST", {
+      booking_id:   bookRes.booking_id,
+      method:       "single",
+      total_amount: sel.total,
+      player_ids:   [user.id]
+    });
+    showToast("Turf booked successfully! 🎉");
+    setTimeout(() => window.location.href = "dashboard.html", 1500);
+  } catch(e) {
+    err.innerText = e.message; err.style.display = "block";
+    showLoading(btn, false, "✅ Confirm & Pay");
+  }
+}
+</script>
+</body>
+</html>

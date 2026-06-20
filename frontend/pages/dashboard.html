@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Player Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+  :root { --p-bg: #0a0a0a; --c-card: #141414; --c-border: #262626; }
+  body { 
+    background: linear-gradient(rgba(10, 10, 10, 0.88), rgba(10, 10, 10, 0.88)), 
+                url('../assets/sports_bg.png') no-repeat center center fixed; 
+    background-size: cover;
+    min-height: 100vh;
+  }
+  
+  /* Profile Card */
+  .profile-section { margin-bottom: 2rem; }
+  .profile-card { 
+    background: linear-gradient(135deg, #141414 0%, #0f0f0f 100%);
+    border: 1px solid var(--c-border);
+    padding: 2rem; border-radius: 20px;
+    display: flex; justify-content: space-between; align-items: center; gap: 2rem;
+    flex-wrap: wrap; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .prof-info { display: flex; align-items: center; gap: 1.5rem; }
+  .prof-avatar { 
+    width: 80px; height: 80px; background: var(--accent); color: #000;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem; font-weight: 800; box-shadow: 0 0 20px rgba(0,210,106,0.3);
+  }
+  .prof-details h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 0.2rem; }
+  .prof-details p { color: #888; font-size: 0.95rem; }
+  
+  .prof-stats { display: flex; gap: 2.5rem; }
+  .stat-box { text-align: center; }
+  .stat-box .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #555; margin-bottom: 0.4rem; }
+  .stat-box .value { font-size: 1.6rem; font-weight: 800; color: var(--accent); }
+  .stat-box .value.none { color: #444; font-size: 0.9rem; font-weight: 400; font-style: italic; margin-top: 5px; }
+
+  /* Actions Grid */
+  .actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .action-item { 
+    background: var(--c-card); border: 1px solid var(--c-border); padding: 1.5rem;
+    border-radius: 16px; transition: 0.3s; cursor: pointer; text-align: center;
+  }
+  .action-item:hover { transform: translateY(-5px); border-color: var(--accent); background: #1a1a1a; }
+  .action-item .ico { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
+  .action-item h4 { font-size: 1.1rem; margin-bottom: 0.25rem; }
+  .action-item p { font-size: 0.82rem; color: #777; }
+
+  /* Notification Panel */
+  .notif-panel { margin-bottom: 2.5rem; }
+  .notif-card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 16px; padding: 1.5rem; }
+  .notif-card h3 { font-size: 1.2rem; margin-bottom: 1rem; color: #fff; display: flex; align-items: center; gap: 0.6rem; }
+  .notif-item { padding: 0.8rem 0; border-bottom: 1px solid #222; font-size: 0.9rem; color: #ccc; }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-time { font-size: 0.75rem; color: #555; margin-top: 0.2rem; }
+
+  /* Matches Area */
+  .match-row { padding: 1.25rem; border: 1px solid var(--c-border); border-radius: 12px; margin-bottom: 0.8rem; background: #0c0c0c; }
+
+  /* Sports UI Stickers */
+  .sports-stickers { display: flex; justify-content: center; gap: 2rem; padding: 3rem 0; opacity: 0.3; filter: grayscale(1); }
+  .sticker { width: 120px; transition: 0.3s; }
+  .sticker:hover { opacity: 1; filter: none; transform: scale(1.1); }
+
+  @media(max-width: 640px) { .profile-card { flex-direction: column; align-items: flex-start; } .prof-stats { width: 100%; justify-content: space-between; margin-top: 1.5rem; } }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <span class="navbar-brand">TURFFIQ</span>
+  <div class="navbar-links">
+    <button class="btn-secondary btn-sm" onclick="clearSession()">Logout</button>
+  </div>
+</nav>
+
+<div class="page-wrap" style="max-width: 1000px; margin-top: 1rem;">
+  
+  <!-- Section 1: User Profile -->
+  <div class="profile-section">
+    <div class="profile-card">
+      <div class="prof-info">
+        <div class="prof-avatar" id="profInitial">?</div>
+        <div class="prof-details">
+          <h2 id="profName">...</h2>
+          <p id="profPhone">...</p>
+          <div id="profLevel" class="badge badge-gray" style="margin-top:0.4rem">Loading Level...</div>
+        </div>
+      </div>
+      <div class="prof-stats">
+        <div class="stat-box">
+          <div class="label">Matches Played</div>
+          <div id="statMatches" class="value">---</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Wins / Points</div>
+          <div id="statWins" class="value">---</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Unified Actions (Only ONCE) -->
+  <div class="actions-grid">
+    <div class="action-item" onclick="location.href='team_create.html'">
+      <span class="ico">⚽</span>
+      <h4>Create Team</h4>
+      <p>Lead your squad</p>
+    </div>
+    <div class="action-item" onclick="location.href='join_team.html'">
+      <span class="ico">🤝</span>
+      <h4>Join Team</h4>
+      <p>Find teammates</p>
+    </div>
+    <div class="action-item" onclick="location.href='direct_booking.html'">
+      <span class="ico">Stadium</span>
+      <h4>Direct Booking</h4>
+      <p>Instant slot</p>
+    </div>
+  </div>
+
+  <!-- Section 3: Notifications Section -->
+  <div class="notif-panel">
+    <div class="notif-card">
+      <h3>🔔 Latest Notifications</h3>
+      <div id="notifList">
+        <p style="color:#444; text-align:center; padding: 1rem;">No new notifications</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4: Upcoming Matches -->
+  <h2 class="section-title">📅 My Upcoming Sessions</h2>
+  <div id="matchesList">
+    <div class="empty-state">
+      <div class="icon">🏟️</div>
+      <p>No active matches yet - Start playing to see your stats</p>
+    </div>
+  </div>
+
+  <!-- Section 5: Sports Themed Enhancement -->
+  <div class="sports-stickers">
+    <div class="sticker" style="font-size: 3rem; text-align:center;">⚽<br><small style="font-size:0.7rem">FOOTBALL</small></div>
+    <div class="sticker" style="font-size: 3rem; text-align:center;">🏏<br><small style="font-size:0.7rem">CRICKET</small></div>
+    <div class="sticker" style="font-size: 3rem; text-align:center;">🎾<br><small style="font-size:0.7rem">TENNIS</small></div>
+  </div>
+
+</div>
+
+<script src="../scripts/api.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = getUser();
+  if (!user.id) { location.href = "login.html"; return; }
+
+  // Load Full Profile (Real Data)
+  loadProfile();
+  
+  // Load Notifications
+  loadNotifs();
+
+  // Load Matches
+  loadMatches();
+});
+
+async function loadProfile() {
+  try {
+    const me = await apiCall("/auth/me");
+    document.getElementById("profName").innerText = me.name;
+    document.getElementById("profPhone").innerText = me.phone || "No phone linked";
+    document.getElementById("profInitial").innerText = me.name.charAt(0).toUpperCase();
+    document.getElementById("profLevel").innerText = me.player_level || "Rookie";
+    
+    const mP = me.matches_played || 0;
+    const wins = me.wins || 0;
+
+    if (mP === 0) {
+      document.getElementById("statMatches").innerHTML = `<span class="none">No activity yet</span>`;
+    } else {
+      document.getElementById("statMatches").innerText = mP;
+    }
+
+    if (wins === 0) {
+      document.getElementById("statWins").innerHTML = `<span class="none">Start playing to see stats</span>`;
+    } else {
+      document.getElementById("statWins").innerText = wins;
+    }
+  } catch(e) {
+    // Fallback if /me fails
+    const user = getUser();
+    document.getElementById("profName").innerText = user.name;
+    document.getElementById("statMatches").innerHTML = `<span class="none">Error loading stats</span>`;
+  }
+}
+
+async function loadNotifs() {
+  const el = document.getElementById("notifList");
+  try {
+    const notifs = await apiCall("/notifications/");
+    if (!notifs.length) {
+      el.innerHTML = `<p style="color:#444; text-align:center; padding: 1rem;">No new notifications</p>`;
+      return;
+    }
+    el.innerHTML = notifs.slice(0, 3).map(n => `
+      <div class="notif-item">
+        <strong>${n.type.replace(/_/g, ' ').toUpperCase()}</strong>: ${n.payload?.message || "Match Update"}
+        <div class="notif-time">${(n.created_at||'').slice(0,16).replace('T',' ')}</div>
+      </div>
+    `).join("");
+  } catch(e) {
+    el.innerHTML = `<p style="color:var(--danger)">Could not load alerts</p>`;
+  }
+}
+
+async function loadMatches() {
+  const el = document.getElementById("matchesList");
+  try {
+    const bookings = await apiCall("/bookings/my");
+    if (!bookings.length) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">🏟️</div><p>No active matches yet - Start playing to see your stats</p></div>`;
+      return;
+    }
+    el.innerHTML = bookings.map(b => `
+      <div class="match-row" style="border-left: 4px solid ${b.status==='Confirmed'?'var(--accent)':'#f6c90e'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
+          <div>
+            <h4 style="margin:0">${b.date}</h4>
+            <span class="badge ${b.status==='Confirmed'?'badge-green':'badge-yellow'}" style="margin-top:0.4rem">${b.status}</span>
+          </div>
+          <div>
+            ${b.team_id ? `<button class="btn-primary btn-sm" onclick="location.href='chat.html?team_id=${b.team_id}'">💬 Chat</button>` : ""}
+          </div>
+        </div>
+      </div>
+    `).join("");
+  } catch(e) {
+    el.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`;
+  }
+}
+</script>
+</body>
+</html>

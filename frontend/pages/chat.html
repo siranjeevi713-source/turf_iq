@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Team Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  html, body { height:100%; overflow:hidden; }
+  body { display:flex; flex-direction:column; }
+  .chat-outer { display:flex; flex:1; overflow:hidden; max-width:1000px; width:100%; margin:0 auto; }
+
+  /* Sidebar */
+  .sidebar { width:260px; border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
+  .sidebar-head { padding:1rem; border-bottom:1px solid var(--border); }
+  .sidebar-head h3 { margin:0; font-size:1rem; }
+  .sidebar-head p  { color:#888; font-size:0.8rem; margin:0.25rem 0 0; }
+  .member-list { flex:1; overflow-y:auto; padding:0.5rem; }
+  .member-item { padding:0.6rem 0.75rem; border-radius:8px; font-size:0.85rem; display:flex; align-items:center; gap:0.6rem; }
+  .member-item:hover { background:#1a1a1a; }
+  .avatar-sm { width:30px; height:30px; border-radius:50%; background:var(--accent); color:#000; font-size:0.75rem; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .online-dot { width:8px; height:8px; background:var(--accent); border-radius:50%; margin-left:auto; }
+  /* Book button in sidebar */
+  .book-btn { margin:1rem; }
+
+  /* Chat area */
+  .chat-area { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .chat-header { padding:1rem 1.5rem; background:#111; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; }
+  .chat-header h3 { margin:0; font-size:1rem; }
+  .live-badge { display:flex; align-items:center; gap:0.4rem; color:#aaa; font-size:0.85rem; }
+  .live-dot { width:8px; height:8px; background:var(--accent); border-radius:50%; animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .messages { flex:1; overflow-y:auto; padding:1.25rem; display:flex; flex-direction:column; gap:0.6rem; }
+  .msg { max-width:72%; padding:0.65rem 1rem; border-radius:14px; word-break:break-word; }
+  .msg-self  { align-self:flex-end; background:var(--accent); color:#000; border-bottom-right-radius:3px; }
+  .msg-other { align-self:flex-start; background:#1e1e1e; border:1px solid #2e2e2e; border-bottom-left-radius:3px; }
+  .msg-sys   { align-self:center; background:transparent; border:1px dashed #333; color:#666; font-size:0.8rem; border-radius:20px; padding:0.3rem 0.9rem; }
+  .msg-name  { font-size:0.75rem; font-weight:700; margin-bottom:0.2rem; opacity:0.7; }
+  .msg-time  { font-size:0.7rem; margin-top:0.25rem; opacity:0.5; text-align:right; }
+
+  .input-bar { display:flex; padding:0.85rem 1rem; border-top:1px solid #222; gap:0.75rem; background:#0e0e0e; }
+  .input-bar input  { margin:0; border-radius:24px; padding:0.7rem 1.2rem; flex:1; }
+  .input-bar button { width:auto; margin:0; border-radius:24px; padding:0.7rem 1.4rem; white-space:nowrap; }
+
+  @media(max-width:600px) { .sidebar { display:none; } }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <span class="navbar-brand">TURFFIQ</span>
+  <div class="navbar-links">
+    <span id="roomLabel" style="color:#888;font-size:0.85rem"></span>
+    <a href="dashboard.html" style="color:#aaa;font-size:0.9rem;text-decoration:none;margin-left:1rem">← Dashboard</a>
+  </div>
+</nav>
+
+<div class="chat-outer">
+  <!-- Sidebar: Members + book button -->
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <h3 id="sideTeamName">Team Chat</h3>
+      <p id="sidePlayerCount">– members</p>
+    </div>
+    <div class="member-list" id="memberList">
+      <p style="color:#888;font-size:0.85rem;padding:0.5rem">Loading members…</p>
+    </div>
+
+    <!-- Book Turf (admin only) -->
+    <div class="book-btn" id="adminActions" style="display:none">
+      <button class="btn-primary" onclick="goBook()" style="margin-top:0">🏟️ Book Turf for Match</button>
+      <a id="paymentLink" href="#" style="display:none;margin-top:0.5rem;text-align:center;color:var(--accent);font-size:0.85rem;text-decoration:none">
+        💳 View Split Payment
+      </a>
+    </div>
+  </div>
+
+  <!-- Chat area -->
+  <div class="chat-area">
+    <div class="chat-header">
+      <h3 id="chatTitle">Match Room</h3>
+      <div class="live-badge"><div class="live-dot"></div> Live Chat</div>
+    </div>
+    <div class="messages" id="messages"></div>
+    <form class="input-bar" id="chatForm">
+      <input id="msgInput" type="text" placeholder="Type a message…" required autocomplete="off">
+      <button type="submit" class="btn-primary">Send</button>
+    </form>
+  </div>
+</div>
+
+<script src="../scripts/api.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = getUser();
+  if (!user.id) { window.location.href = "login.html"; return; }
+
+  const params  = new URLSearchParams(window.location.search);
+  const teamId  = params.get("team_id");
+  const room    = teamId ? `team_${teamId}` : "global-lobby";
+  let teamData  = null;
+  let isAdmin   = false;
+
+  document.getElementById("roomLabel").innerText  = teamId ? `Team ID: ${teamId.slice(-8)}` : "Global Lobby";
+  document.getElementById("chatTitle").innerText  = teamId ? "Team Chat" : "Global Lobby";
+
+  // Load team info
+  if (teamId) {
+    try {
+      teamData = await apiCall(`/teams/${teamId}`);
+      isAdmin  = teamData.creator_id === user.id;
+
+      document.getElementById("sideTeamName").innerText  = teamData.team_name || "Team Chat";
+      document.getElementById("sidePlayerCount").innerText = `${teamData.current_players_count} / ${teamData.required_players} members`;
+
+      renderMembers(teamData.players || [], user.id);
+
+      // Admin controls
+      if (isAdmin) {
+        document.getElementById("adminActions").style.display = "block";
+        // Check if team already has a booking
+        try {
+          const bookings = await apiCall("/bookings/my");
+          const teamBooking = bookings.find(b => b.team_id === teamId && b.payment_method === "split");
+          if (teamBooking) {
+            const payLink = document.getElementById("paymentLink");
+            payLink.href = `payment_split.html?booking_id=${teamBooking._id}&team_id=${teamId}`;
+            payLink.style.display = "block";
+          }
+        } catch(e) {}
+      }
+    } catch(e) {
+      console.error(e);
+    }
+  }
+
+  // Socket
+  const socket = io("http://localhost:5000");
+  socket.on("connect", () => {
+    if (teamId) {
+      socket.emit("join_team_room", { team_id: teamId, user_id: user.id, name: user.name });
+    } else {
+      socket.emit("join", { room, name: user.name, user_id: user.id });
+    }
+    socket.emit("join_user_room", { user_id: user.id });
+  });
+
+  socket.on("load_history", msgs => {
+    const container = document.getElementById("messages");
+    container.innerHTML = "";
+    if (!msgs || !msgs.length) {
+      appendSys("👋 No messages yet. Start the conversation!");
+    } else {
+      msgs.forEach(m => appendMsg(m.text, m.sender_name || m.user, m.sender_id === user.id || m.user_id === user.id, m.timestamp));
+    }
+  });
+
+  socket.on("message", d => {
+    if (d.system) { appendSys(d.text); return; }
+    const isSelf = d.user_id === user.id || d.user === user.name;
+    appendMsg(d.text, d.user, isSelf, d.timestamp);
+  });
+
+  socket.on("notification", n => {
+    showToast("🔔 " + (n.payload?.message || n.type));
+  });
+
+  socket.on("payment_update", d => {
+    appendSys("💰 " + (d.message || "Payment update received"));
+  });
+
+  let typingTimer;
+  document.getElementById("msgInput").addEventListener("input", () => {
+    socket.emit("typing", { room, name: user.name });
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => socket.emit("stop_typing", { room, name: user.name }), 1000);
+  });
+
+  document.getElementById("chatForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const txt = document.getElementById("msgInput").value.trim();
+    if (!txt) return;
+    socket.emit("sendMessage", { room, msg: txt, name: user.name, user_id: user.id });
+    socket.emit("stop_typing", { room, name: user.name });
+    document.getElementById("msgInput").value = "";
+  });
+
+  const typingDiv = document.createElement("div");
+  typingDiv.id = "typingIndicator";
+  typingDiv.style = "color:#888;font-size:0.8rem;padding:0.5rem 1.5rem;display:none";
+  document.querySelector(".chat-area").insertBefore(typingDiv, document.getElementById("chatForm"));
+
+  socket.on("typing", d => {
+    typingDiv.innerText = `${d.name} is typing...`;
+    typingDiv.style.display = "block";
+  });
+  socket.on("stop_typing", d => {
+    typingDiv.style.display = "none";
+  });
+
+  function goBook() {
+    if (teamId) {
+      window.location.href = `team_create.html?book_mode=1&team_id=${teamId}`;
+    }
+  }
+  window.goBook = goBook;
+});
+
+function renderMembers(playerIds, myId) {
+  const list = document.getElementById("memberList");
+  if (!playerIds.length) { list.innerHTML = `<p style="color:#888;font-size:0.85rem;padding:0.5rem">No members yet.</p>`; return; }
+  list.innerHTML = playerIds.map(pid => `
+    <div class="member-item">
+      <div class="avatar-sm">${pid[0]?.toUpperCase() || "?"}</div>
+      <span>${pid === myId ? "You" : `Player …${pid.slice(-4)}`}</span>
+      <div class="online-dot"></div>
+    </div>`).join("");
+}
+
+function appendMsg(text, sender, isSelf, timestamp) {
+  const container = document.getElementById("messages");
+  const div = document.createElement("div");
+  div.className = `msg ${isSelf ? "msg-self" : "msg-other"}`;
+  const time = timestamp ? new Date(timestamp).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+  div.innerHTML = `${!isSelf ? `<div class="msg-name">${sender}</div>` : ""}${text}<div class="msg-time">${time}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendSys(text) {
+  const container = document.getElementById("messages");
+  const div = document.createElement("div");
+  div.className = "msg msg-sys";
+  div.innerText = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+  body {
+    background-image:url('../assets/stadium_bg.png');
+    background-size:cover; background-position:center;
+    display:flex; align-items:center; justify-content:center; min-height:100vh;
+  }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:0; }
+  .wrap { position:relative; z-index:1; width:100%; max-width:900px; padding:2rem; }
+  .top { text-align:center; margin-bottom:2rem; }
+  .top img { width:70px; border-radius:50%; box-shadow:0 0 20px rgba(0,210,106,0.5); }
+  .top h1 { color:#00d26a; font-size:2.2rem; font-weight:800; letter-spacing:2px; margin-top:0.5rem; }
+  .panels { display:flex; gap:0; background:rgba(15,15,15,0.7); backdrop-filter:blur(14px); border:1px solid #2a2a2a; border-radius:16px; overflow:hidden; }
+  .panel  { flex:1; padding:2.5rem 2rem; }
+  .sep    { width:2px; background:#00d26a; box-shadow:0 0 12px #00d26a; flex-shrink:0; }
+  .panel h2 { text-align:center; font-size:1.4rem; margin-bottom:1.5rem; }
+  .panel h2 span { color:#00d26a; }
+  .input-wrap { position:relative; }
+  .input-wrap input { padding-left:2.5rem; margin-top:0.75rem; }
+  .input-wrap .ico { position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:1rem; pointer-events:none; }
+  .eye { position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color:#888; font-size:0.85rem; }
+  .forgot { text-align:right; font-size:0.82rem; color:#888; margin-top:0.5rem; display:block; }
+  .err { color:#e53e3e; font-size:0.83rem; margin-top:0.5rem; display:none; }
+  .foot { text-align:center; margin-top:1.5rem; font-size:0.85rem; color:#888; }
+  .foot a { color:#00d26a; font-weight:700; display:block; margin-top:0.4rem; font-size:0.95rem; text-decoration:none; }
+  @media(max-width:640px) { .panels{flex-direction:column;} .sep{width:100%;height:2px;} }
+</style>
+</head>
+<body>
+<div class="overlay"></div>
+<div class="wrap">
+  <div class="top">
+    <img src="../assets/Logo.jpeg" alt="Logo">
+    <h1>TURFFIQ</h1>
+  </div>
+  <!-- Role Selection Panel -->
+  <div id="roleSelectPanel" class="panels" style="background:transparent; border:none; backdrop-filter:none;">
+    <div class="panel" style="background:rgba(15,15,15,0.7); backdrop-filter:blur(14px); border:1px solid #2a2a2a; border-radius:16px; margin: 0 10px; cursor: pointer; transition: 0.3s;" onclick="selectRole('player')">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">🏃</div>
+      <h2>Player <span>Login</span></h2>
+      <p style="color:#888; font-size: 0.9rem;">Book turfs, find teams, and play.</p>
+      <button class="btn-primary" style="margin-top: 1.5rem;">Continue as Player</button>
+    </div>
+    <div class="panel" style="background:rgba(15,15,15,0.7); backdrop-filter:blur(14px); border:1px solid #2a2a2a; border-radius:16px; margin: 0 10px; cursor: pointer; transition: 0.3s;" onclick="selectRole('owner')">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">🏟️</div>
+      <h2>Turf Owner <span>Login</span></h2>
+      <p style="color:#888; font-size: 0.9rem;">Manage slots, bookings, and payments.</p>
+      <button class="btn-primary" style="margin-top: 1.5rem; background:#3b82f6;">Continue as Owner</button>
+    </div>
+  </div>
+
+  <div class="panels" id="loginPanels" style="display:none;">
+    <!-- Player -->
+    <div class="panel" id="playerPanel" style="display:none;">
+      <a href="javascript:void(0)" onclick="resetRole()" style="color:#888; text-decoration:none; font-size:0.85rem;">← Back to Role Selection</a>
+      <h2 style="margin-top:1.5rem;">User Login</h2>
+      <form id="pForm">
+        <div class="input-wrap">
+          <span class="ico">📞</span>
+          <input type="tel" id="pPhone" placeholder="Phone Number" required>
+        </div>
+        <div class="input-wrap" style="margin-top:0">
+          <span class="ico">🔒</span>
+          <input type="password" id="pPass" placeholder="Password" required>
+          <span class="eye" onclick="toggle('pPass',this)">👁</span>
+        </div>
+        <span class="forgot">Forgot Password?</span>
+        <p class="err" id="pErr"></p>
+        <button type="submit" class="btn-primary" id="pBtn">Login</button>
+      </form>
+      <div class="foot">DON'T HAVE AN ACCOUNT?<a href="register.html">Register</a></div>
+    </div>
+
+    <!-- Owner -->
+    <div class="panel" id="ownerPanel" style="display:none;">
+      <a href="javascript:void(0)" onclick="resetRole()" style="color:#888; text-decoration:none; font-size:0.85rem;">← Back to Role Selection</a>
+      <h2 style="margin-top:1.5rem;">Turf Owner <span>Login</span></h2>
+      <form id="oForm">
+        <div class="input-wrap">
+          <span class="ico">📞</span>
+          <input type="tel" id="oPhone" placeholder="Phone Number" required>
+        </div>
+        <div class="input-wrap" style="margin-top:0">
+          <span class="ico">🔒</span>
+          <input type="password" id="oPass" placeholder="Password" required>
+          <span class="eye" onclick="toggle('oPass',this)">👁</span>
+        </div>
+        <span class="forgot">Forgot Password?</span>
+        <p class="err" id="oErr"></p>
+        <button type="submit" class="btn-primary" id="oBtn" style="background:#3b82f6;">Login</button>
+      </form>
+      <div class="foot">DON'T HAVE AN ACCOUNT?<a href="register.html?role=owner">Register as Turf Owner</a></div>
+    </div>
+  </div>
+</div>
+<script src="../scripts/api.js"></script>
+<script>
+function toggle(id, el) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === "password" ? "text" : "password";
+  el.innerText = inp.type === "password" ? "👁" : "🙈";
+}
+
+function selectRole(role) {
+  document.getElementById("roleSelectPanel").style.display = "none";
+  document.getElementById("loginPanels").style.display = "flex";
+  if (role === 'player') {
+    document.getElementById("playerPanel").style.display = "block";
+    document.getElementById("ownerPanel").style.display = "none";
+  } else {
+    document.getElementById("playerPanel").style.display = "none";
+    document.getElementById("ownerPanel").style.display = "block";
+  }
+}
+
+function resetRole() {
+  document.getElementById("loginPanels").style.display = "none";
+  document.getElementById("roleSelectPanel").style.display = "flex";
+}
+
+async function doLogin(phone, pass, errId, btnId, expectedRole) {
+  const err = document.getElementById(errId);
+  const btn = document.getElementById(btnId);
+  err.style.display = "none";
+  showLoading(btn, true);
+  try {
+    const res = await apiCall("/auth/login", "POST", { phone, password: pass });
+    if (expectedRole === "owner" && res.user.role !== "Turf Owner")
+      throw new Error("Not registered as a Turf Owner.");
+    if (expectedRole === "player" && res.user.role === "Turf Owner")
+      throw new Error("Please use Turf Owner login.");
+    setSession(res.token, res.user);
+    showToast("Welcome back, " + res.user.name + "!");
+    setTimeout(() => {
+      window.location.href = res.user.role === "Turf Owner" ? "owner_dashboard.html" : "dashboard.html";
+    }, 600);
+  } catch(e) {
+    err.innerText = e.message; err.style.display = "block";
+    showLoading(btn, false, "Login");
+  }
+}
+
+document.getElementById("pForm").addEventListener("submit", e => {
+  e.preventDefault();
+  doLogin(document.getElementById("pPhone").value, document.getElementById("pPass").value, "pErr", "pBtn", "player");
+});
+document.getElementById("oForm").addEventListener("submit", e => {
+  e.preventDefault();
+  doLogin(document.getElementById("oPhone").value, document.getElementById("oPass").value, "oErr", "oBtn", "owner");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Owner Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  .sm-slot { padding:0.75rem; border-radius:8px; border:1px solid #333; text-align:center; font-size:0.85rem; }
+  .sm-slot.available { border-color:var(--accent); }
+  .sm-slot.booked    { border-color:#555; background:#1a1a1a; color:#666; }
+  .sm-slot.blocked   { border-color:var(--danger); background:rgba(229,62,62,0.05); color:var(--danger); }
+  .sm-slot.locked    { border-color:#f6c90e; background:rgba(246,201,14,0.05); color:#f6c90e; }
+  .sm-slot select    { margin-top:0.4rem; font-size:0.78rem; padding:0.3rem; width:100%; }
+  .booking-row { padding:1rem; border-left:3px solid var(--accent); margin-bottom:0.75rem; }
+  .booking-row.rejected { border-left-color:var(--danger); opacity:0.6; }
+  .booking-row.accepted { border-left-color:var(--accent); }
+  .review-stars { color:#ffd700; font-size:1rem; letter-spacing:2px; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <span class="navbar-brand">TURFFIQ Owner</span>
+  <div class="navbar-links">
+    <span id="ownerName" style="color:#aaa;font-size:0.9rem"></span>
+    <button class="btn-secondary btn-sm" onclick="clearSession()">Logout</button>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="setupTab">⚙️ Turf Setup</div>
+    <div class="tab" data-tab="slotsTab">⏰ Slots</div>
+    <div class="tab" data-tab="bookingsTab">📦 Bookings</div>
+    <div class="tab" data-tab="paymentsTab">💳 Payments</div>
+    <div class="tab" data-tab="reviewsTab">⭐ Reviews</div>
+    <div class="tab" data-tab="notifsTab">🔔 Alerts</div>
+  </div>
+
+  <!-- ═══════ TAB 1: TURF SETUP ═══════ -->
+  <div id="setupTab" class="tab-content active">
+    <div class="card" style="margin-bottom:1.5rem" id="existingTurfCard" style="display:none">
+      <h3 class="section-title">Your Registered Turf</h3>
+      <div id="existingTurf"><p style="color:#888">Loading…</p></div>
+    </div>
+    <div class="card">
+      <h3 class="section-title" id="turfFormTitle">Register New Turf</h3>
+      <form id="turfForm">
+        <div class="grid-2">
+          <div><label>Turf Facility Name</label><input id="turf_name" type="text" required placeholder="Champions Arena"></div>
+          <div><label>Contact Phone</label><input id="turf_phone" type="tel" required></div>
+          <div style="grid-column:span 2"><label>Location (Address)</label><input id="turf_loc" type="text" required placeholder="Downtown London"></div>
+          <div><label>Latitude</label><input id="lat" type="number" step="any" placeholder="51.5074"></div>
+          <div><label>Longitude</label><input id="lng" type="number" step="any" placeholder="-0.1278"></div>
+          <div style="grid-column:span 2"><label>Default Price Per Hour (₹)</label><input id="turf_price" type="number" value="500" min="0"></div>
+        </div>
+        <p id="turfErr" style="color:var(--danger);font-size:0.85rem;display:none;margin-top:0.5rem"></p>
+        <button type="submit" class="btn-primary" id="turfBtn">Save Turf</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════ TAB 2: SLOT MANAGEMENT ═══════ -->
+  <div id="slotsTab" class="tab-content">
+
+    <!-- Generate Slots -->
+    <div class="card" style="margin-bottom:1.5rem" id="generateSlotCard">
+      <h3 class="section-title">⚡ Generate Hourly Slots</h3>
+      <p style="color:#aaa;font-size:0.85rem;margin-bottom:1rem">Creates 17 slots (6:00 AM – 10:00 PM) at 1-hour intervals for the selected date.</p>
+      <div class="grid-2">
+        <div><label>Date</label><input id="genDate" type="date"></div>
+        <div><label>Price per Slot (₹)</label><input id="genPrice" type="number" value="500" min="0"></div>
+      </div>
+      <button class="btn-primary" id="genBtn" onclick="generateSlots()">⚡ Generate Slots</button>
+    </div>
+
+    <!-- Stats Summary Cards -->
+    <div class="grid-2" style="margin-bottom:1.5rem" id="slotStatCards">
+      <div class="card" style="text-align:center;padding:1.5rem;background:rgba(0,210,106,0.06);border-color:var(--accent)">
+        <h4 style="color:#aaa;margin:0">Total Slots</h4>
+        <h2 style="color:var(--accent);font-size:2.5rem;margin:0.5rem 0" id="statTotal">–</h2>
+      </div>
+      <div class="card" style="text-align:center;padding:1.5rem;background:rgba(0,210,106,0.06);border-color:var(--accent)">
+        <h4 style="color:#aaa;margin:0">Available</h4>
+        <h2 style="color:var(--accent);font-size:2.5rem;margin:0.5rem 0" id="statAvail">–</h2>
+      </div>
+      <div class="card" style="text-align:center;padding:1.5rem;background:rgba(229,62,62,0.06);border-color:var(--danger)">
+        <h4 style="color:#aaa;margin:0">Booked</h4>
+        <h2 style="color:var(--danger);font-size:2.5rem;margin:0.5rem 0" id="statBooked">–</h2>
+      </div>
+      <div class="card" style="text-align:center;padding:1.5rem">
+        <h4 style="color:#aaa;margin:0">Blocked / Locked</h4>
+        <h2 style="font-size:2.5rem;margin:0.5rem 0" id="statBlocked">–</h2>
+      </div>
+    </div>
+
+    <!-- View Slots Grid -->
+    <div class="card">
+      <h3 class="section-title">📅 Slot Overview by Date</h3>
+      <div style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+        <input id="viewDate" type="date" style="margin:0;flex:1">
+        <button class="btn-secondary" onclick="viewSlots()">📊 Load Slots</button>
+      </div>
+      <div class="slot-grid" id="slotGrid"><p style="color:#888">Select a date and click Load Slots.</p></div>
+    </div>
+
+    <!-- Upcoming Booked Slots -->
+    <div class="card" style="margin-top:1.5rem">
+      <h3 class="section-title">⏰ Upcoming Booked Slots</h3>
+      <div id="upcomingSlotsList"><p style="color:#888">Select a date above to see bookings.</p></div>
+    </div>
+  </div>
+
+  <!-- ═══════ TAB 3: BOOKINGS ═══════ -->
+  <div id="bookingsTab" class="tab-content">
+    <div class="card">
+      <h3 class="section-title">Booking Requests</h3>
+      <div id="bookingsList"><p style="color:#888">Loading…</p></div>
+    </div>
+  </div>
+
+  <!-- ═══════ TAB 4: PAYMENTS ═══════ -->
+  <div id="paymentsTab" class="tab-content">
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;background:rgba(0,50,20,0.4);border-color:var(--accent)">
+      <div><h4 style="color:#aaa;margin:0">Total Earnings</h4><h2 style="color:var(--accent);margin:0.5rem 0;font-size:2.5rem" id="totalEarnings">No earnings yet</h2></div>
+      <div style="text-align:right"><h4 style="color:#aaa;margin:0">Confirmed Bookings</h4><h2 style="margin:0.5rem 0" id="confirmedCount">---</h2></div>
+    </div>
+    <div class="card">
+      <h3 class="section-title">Transaction List</h3>
+      <div id="txnList"><p style="color:#888">Loading…</p></div>
+    </div>
+  </div>
+
+  <!-- ═══════ TAB 5: REVIEWS ═══════ -->
+  <div id="reviewsTab" class="tab-content">
+    <div class="card">
+      <h3 class="section-title">Player Reviews & Ratings</h3>
+      <div id="reviewsList"><p style="color:#888">Loading…</p></div>
+    </div>
+  </div>
+
+  <!-- ═══════ TAB 6: NOTIFICATIONS ═══════ -->
+  <div id="notifsTab" class="tab-content">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h3 class="section-title" style="border:0;margin:0;padding:0">Booking & Payment Alerts</h3>
+        <button class="btn-secondary btn-sm" onclick="markAllNotifs()">Mark All Read</button>
+      </div>
+      <div id="ownerNotifs"><p style="color:#888">Loading…</p></div>
+    </div>
+  </div>
+</div>
+
+<script src="../scripts/api.js"></script>
+<script>
+// ── State ────────────────────────────────────────────────────────────────
+let myTurf = null;   // Object with full turf data incl _id
+let socket = null;
+
+// ── Init ────────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = getUser();
+  if (!user.id || user.role !== "Turf Owner") {
+    showToast("Turf Owner access only", "error");
+    window.location.href = "login.html";
+    return;
+  }
+  document.getElementById("ownerName").innerText = "Owner: " + user.name;
+
+  // Connect SocketIO for live notifications
+  socket = io("http://localhost:5000");
+  socket.on("connect", () => {
+    socket.emit("join_user_room", { user_id: user.id });
+  });
+  socket.on("notification", n => {
+    showToast("🔔 " + (n.payload?.message || n.type));
+  });
+
+  // Tab switcher
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", function() {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      this.classList.add("active");
+      document.getElementById(this.dataset.tab).classList.add("active");
+      // Lazy load tab data
+      const tid = this.dataset.tab;
+      if (tid === "slotsTab")    loadTodaySlotStats();
+      if (tid === "bookingsTab") loadBookings();
+      if (tid === "paymentsTab") loadPayments();
+      if (tid === "reviewsTab")  loadReviews();
+      if (tid === "notifsTab")   loadNotifs();
+    });
+  });
+
+  // Load owner's turf
+  await loadOwnerTurf();
+});
+
+// ── Load Owner's Turf ───────────────────────────────────────────────────
+async function loadOwnerTurf() {
+  try {
+    const turfs = await apiCall("/turfs/owner");
+    if (turfs.length > 0) {
+      myTurf = turfs[0];
+      renderExistingTurf();
+      // Pre-fill form for editing
+      document.getElementById("turfFormTitle").innerText = "Update Turf Details";
+      document.getElementById("turf_name").value   = myTurf.turf_name || "";
+      document.getElementById("turf_phone").value  = myTurf.phone || "";
+      document.getElementById("turf_loc").value    = myTurf.location || "";
+      document.getElementById("lat").value         = myTurf.lat || "";
+      document.getElementById("lng").value         = myTurf.lng || "";
+      document.getElementById("turf_price").value  = myTurf.price_per_hour || 500;
+      document.getElementById("turfBtn").innerText = "Update Turf";
+    }
+  } catch(e) { console.error(e); }
+}
+
+function renderExistingTurf() {
+  const card = document.getElementById("existingTurfCard");
+  card.style.display = "block";
+  document.getElementById("existingTurf").innerHTML = `
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+      <div>
+        <h3 style="color:var(--accent);margin:0">${myTurf.turf_name}</h3>
+        <p style="color:#aaa;margin-top:0.3rem">📍 ${myTurf.location} &nbsp;📞 ${myTurf.phone}</p>
+        <p style="color:#888;font-size:0.85rem;margin-top:0.25rem">
+          Lat: ${myTurf.lat||'–'} &nbsp;Lng: ${myTurf.lng||'–'} &nbsp;| &nbsp;Price: ₹${myTurf.price_per_hour||500}/hr
+        </p>
+      </div>
+      <div>
+        <span class="badge badge-green">Active</span>
+        <br><small style="color:#888">ID: ${myTurf._id}</small>
+      </div>
+    </div>`;
+}
+
+// ── Turf Form Submit ────────────────────────────────────────────────────
+document.getElementById("turfForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = document.getElementById("turfBtn");
+  const err = document.getElementById("turfErr");
+  err.style.display = "none";
+  showLoading(btn, true);
+
+  const data = {
+    turf_name:      document.getElementById("turf_name").value,
+    phone:          document.getElementById("turf_phone").value,
+    location:       document.getElementById("turf_loc").value,
+    lat:            document.getElementById("lat").value,
+    lng:            document.getElementById("lng").value,
+    price_per_hour: parseInt(document.getElementById("turf_price").value) || 500
+  };
+
+  try {
+    if (myTurf) {
+      // Update existing
+      await apiCall(`/turfs/${myTurf._id}`, "PUT", data);
+      showToast("Turf updated successfully! ✅");
+    } else {
+      // Create new
+      const res = await apiCall("/turfs/register", "POST", { ...data, name: getUser().name });
+      myTurf = { _id: res.turf_id, ...data };
+      showToast("Turf registered! Now generate slots. ✅");
+    }
+    await loadOwnerTurf();
+    showLoading(btn, false, myTurf ? "Update Turf" : "Save Turf");
+  } catch(ex) {
+    err.innerText = ex.message; err.style.display = "block";
+    showLoading(btn, false, myTurf ? "Update Turf" : "Save Turf");
+  }
+});
+
+// ── Generate Slots ──────────────────────────────────────────────────────
+async function generateSlots() {
+  if (!myTurf) { showToast("Register your turf first!", "error"); return; }
+  const date  = document.getElementById("genDate").value;
+  const price = parseInt(document.getElementById("genPrice").value) || 500;
+  if (!date) { showToast("Select a date first", "error"); return; }
+  const btn = document.getElementById("genBtn");
+  showLoading(btn, true);
+  try {
+    const res = await apiCall("/slots/generate", "POST", {
+      turf_id: myTurf._id, date, price
+    });
+    showToast(res.message + " ✅");
+    showLoading(btn, false, "⚡ Generate Slots");
+    // Auto-load the generated slots
+    document.getElementById("viewDate").value = date;
+    await viewSlots();
+  } catch(e) {
+    showToast(e.message, "error");
+    showLoading(btn, false, "⚡ Generate Slots");
+  }
+}
+
+// ── View Slots ─────────────────────────────────────────────────────────
+async function viewSlots() {
+  if (!myTurf) { showToast("Register turf first", "error"); return; }
+  const date = document.getElementById("viewDate").value;
+  if (!date) { showToast("Select a date", "error"); return; }
+  const grid = document.getElementById("slotGrid");
+  grid.innerHTML = "<p style='color:#888'>Loading…</p>";
+  try {
+    const res = await apiCall(`/slots/?turf_id=${myTurf._id}&date=${date}`);
+    const slots = res.slots || res;
+    
+    if (!slots || !slots.length) {
+      grid.innerHTML = "<p style='color:#aaa'>No slots for this date yet. Click 'Generate Slots' above to create them.</p>";
+      ["statTotal","statAvail","statBooked","statBlocked"].forEach(id => document.getElementById(id).innerText = "---");
+      document.getElementById("upcomingSlotsList").innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>No slots exist for this date.</p></div>`;
+      return;
+    }
+
+    // Count by display_status (includes locked distinction) or fallback to status
+    const total   = slots.length;
+    const avail   = slots.filter(s => (s.display_status||s.status) === "available").length;
+    const booked  = slots.filter(s => (s.display_status||s.status) === "booked").length;
+    const blocked = slots.filter(s => ["blocked","locked"].includes(s.display_status||s.status)).length;
+    
+    document.getElementById("statTotal").innerText   = total;
+    document.getElementById("statAvail").innerText   = avail;
+    document.getElementById("statBooked").innerText  = booked;
+    document.getElementById("statBlocked").innerText = blocked;
+
+    // Render slot grid with proper status colors
+    grid.innerHTML = slots.map(s => {
+      const ds = s.display_status || s.status;
+      let badgeClass = "badge-green";
+      let badgeText  = "Available";
+      if (ds === "booked")  { badgeClass = "badge-yellow"; badgeText = "Booked"; }
+      if (ds === "blocked") { badgeClass = "badge-red";    badgeText = "Blocked"; }
+      if (ds === "locked")  { badgeClass = "badge-yellow"; badgeText = "🔒 Locked"; }
+
+      return `
+      <div class="sm-slot ${ds}" id="slot_${s._id}">
+        <strong>${s.label}</strong><br>
+        <span class="badge ${badgeClass}" style="margin:0.35rem 0;display:inline-block">${badgeText}</span><br>
+        <small style="color:#888">₹${s.price}</small>
+      </div>`;
+    }).join("");
+
+    // Load upcoming booked slots list
+    const bookedSlots = slots.filter(s => (s.display_status||s.status) === "booked");
+    loadUpcomingSlots(bookedSlots);
+  } catch(e) {
+    grid.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`;
+  }
+}
+
+function loadUpcomingSlots(bookedSlots) {
+  const el = document.getElementById("upcomingSlotsList");
+  if (!bookedSlots || !bookedSlots.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>No booked slots for this date.</p></div>`;
+    return;
+  }
+  el.innerHTML = bookedSlots.map(s => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.9rem 1rem;border-radius:10px;border:1px solid #444;margin-bottom:0.6rem;background:#111">
+      <div>
+        <strong style="color:#fff">${s.label}</strong>
+        <p style="color:#888;font-size:0.8rem;margin:0.25rem 0 0">Slot: ${(s._id||"").slice(-6).toUpperCase()}</p>
+      </div>
+      <div style="text-align:right">
+        <span class="badge badge-yellow">Booked</span>
+        <p style="color:var(--accent);font-size:0.85rem;margin:0.25rem 0 0">₹${s.price}</p>
+      </div>
+    </div>`
+  ).join("");
+}
+
+// ── Auto-load today's slot stats when opening Slots tab ────────────────
+async function loadTodaySlotStats() {
+  if (!myTurf) return;
+  const today = new Date().toISOString().split("T")[0];
+  document.getElementById("viewDate").value = today;
+  document.getElementById("genDate").value = today;
+  await viewSlots();
+}
+
+// ── Bookings ──────────────────────────────────────────────────────────
+async function loadBookings() {
+  const el = document.getElementById("bookingsList");
+  el.innerHTML = "<p style='color:#888'>Loading…</p>";
+  try {
+    const bookings = await apiCall("/bookings/owner");
+    if (!bookings.length) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">📦</div><p>No bookings yet. Players will book your turf soon!</p></div>`;
+      return;
+    }
+    el.innerHTML = bookings.map(b => {
+      const os = b.owner_status || "pending";
+      return `
+      <div class="card booking-row ${os}">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+          <div>
+            <strong>Booking #${(b._id||"").slice(-6).toUpperCase()}</strong>
+            <span class="badge ${b.status==='Confirmed'?'badge-green':b.status==='Rejected'?'badge-red':'badge-yellow'}" style="margin-left:0.5rem">${b.status}</span>
+            ${os!=='pending'? `<span class="badge badge-gray" style="margin-left:0.25rem">${os}</span>`:''}
+          </div>
+          <span style="color:var(--accent);font-weight:700">₹${b.total_cost}</span>
+        </div>
+        <p style="color:#aaa;font-size:0.85rem;margin:0.5rem 0">📅 ${b.date || '–'} &nbsp;|&nbsp; Payment: ${b.payment_status || '–'} &nbsp;|&nbsp; ${b.team_id ? 'Team booking':'Direct booking'}</p>
+        <p style="color:#666;font-size:0.8rem">Services: ${(b.services||[]).join(', ')||'None'}</p>
+        <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap">
+          ${os!=='accepted'&&os!=='rejected'?`
+            <button class="btn-primary btn-sm" onclick="bookingAction('${b._id}','accept',this)">✅ Accept</button>
+            <button class="btn-danger" onclick="bookingAction('${b._id}','reject',this)">❌ Reject</button>`:`
+            <button class="btn-secondary btn-sm" disabled>${os==='accepted'?'✅ Accepted':'❌ Rejected'}</button>`}
+          <a href="https://maps.google.com/?q=${myTurf?.lat||''},${myTurf?.lng||''}" target="_blank" class="btn-secondary btn-sm">📍 Navigate</a>
+        </div>
+      </div>`;
+    }).join("");
+  } catch(e) {
+    el.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`;
+  }
+}
+
+async function bookingAction(id, action, btn) {
+  showLoading(btn, true);
+  try {
+    await apiCall(`/bookings/${id}/${action}`, "PATCH");
+    showToast(`Booking ${action}ed ✅`);
+    await loadBookings();
+  } catch(e) {
+    showToast(e.message, "error");
+    showLoading(btn, false, action === "accept" ? "✅ Accept" : "❌ Reject");
+  }
+}
+
+// ── Payments ────────────────────────────────────────────────────────────
+async function loadPayments() {
+  try {
+    const bookings  = await apiCall("/bookings/owner");
+    const confirmed = bookings.filter(b => b.status === "Confirmed" || b.payment_status === "paid");
+    const total     = confirmed.reduce((s,b) => s + (b.total_cost||0), 0);
+    document.getElementById("totalEarnings").innerText  = total > 0 ? `₹${total.toLocaleString()}` : "No earnings yet";
+    document.getElementById("confirmedCount").innerText = confirmed.length > 0 ? confirmed.length : "---";
+
+    const el = document.getElementById("txnList");
+    if (!confirmed.length) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">💳</div><p>No completed payments yet.</p></div>`;
+      return;
+    }
+    el.innerHTML = confirmed.map(b => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 0;border-bottom:1px solid #222;font-size:0.9rem">
+        <div>
+          <span>Booking #${(b._id||"").slice(-6).toUpperCase()}</span>
+          <span class="badge badge-green" style="margin-left:0.5rem">Paid</span>
+        </div>
+        <span style="color:#aaa">${b.date || '–'}</span>
+        <strong style="color:var(--accent)">₹${b.total_cost}</strong>
+      </div>`).join("");
+  } catch(e) {
+    document.getElementById("txnList").innerHTML = `<p style="color:var(--danger)">${e.message}</p>`;
+  }
+}
+
+// ── Reviews ────────────────────────────────────────────────────────────
+async function loadReviews() {
+  const el = document.getElementById("reviewsList");
+  el.innerHTML = "<p style='color:#888'>Loading…</p>";
+  if (!myTurf) { el.innerHTML = "<p style='color:#aaa'>Register turf first.</p>"; return; }
+  try {
+    const res = await apiCall(`/reviews/${myTurf._id}`);
+    let html = `<div style="margin-bottom:1rem;padding:1rem;background:#111;border-radius:8px;text-align:center">
+      <p style="color:#aaa;font-size:0.9rem">Average Rating</p>
+      <h2 style="color:#ffd700;margin:0.3rem 0">${res.average_rating > 0 ? res.average_rating + ' ★' : 'No ratings yet'}</h2>
+      <p style="color:#888;font-size:0.85rem">${res.reviews.length > 0 ? res.reviews.length + ' review(s)' : 'No reviews'}</p>
+    </div>`;
+    if (res.reviews.length) {
+      html += res.reviews.map(r => `
+        <div style="padding:0.75rem 0;border-bottom:1px solid #222">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong>${r.user_name}</strong>
+            <span class="review-stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span>
+          </div>
+          <p style="color:#aaa;font-size:0.9rem;margin-top:0.25rem">"${r.comment}"</p>
+          <p style="color:#666;font-size:0.75rem;margin-top:0.15rem">${(r.created_at||"").slice(0,10)}</p>
+        </div>`).join("");
+    } else {
+      html += `<div class="empty-state"><div class="icon">⭐</div><p>No reviews yet.</p></div>`;
+    }
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`; }
+}
+
+// ── Notifications ──────────────────────────────────────────────────────
+async function loadNotifs() {
+  const el = document.getElementById("ownerNotifs");
+  el.innerHTML = "<p style='color:#888'>Loading…</p>";
+  try {
+    const notifs = await apiCall("/notifications/");
+    if (!notifs.length) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>No alerts. You're all caught up!</p></div>`;
+      return;
+    }
+    el.innerHTML = notifs.map(n => `
+      <div class="card" style="margin-bottom:0.75rem;border-left:3px solid ${n.read?'#333':'var(--accent)'}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem">
+          <div>
+            <p style="font-weight:${n.read?'400':'700'};margin-bottom:0.2rem">${n.payload?.message||n.type}</p>
+            <p style="color:#888;font-size:0.8rem">${(n.created_at||"").slice(0,16).replace('T',' ')}</p>
+          </div>
+          ${!n.read?`<button class="btn-secondary btn-sm" onclick="markNotifRead('${n._id}',this)">Read</button>`
+                   :`<span class="badge badge-gray">Read</span>`}
+        </div>
+      </div>`).join("");
+  } catch(e) { el.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`; }
+}
+
+async function markNotifRead(id, btn) {
+  try {
+    await apiCall(`/notifications/${id}/read`, "PATCH");
+    btn.closest(".card").style.borderLeftColor = "#333";
+    btn.outerHTML = '<span class="badge badge-gray">Read</span>';
+  } catch(e) { showToast(e.message, "error"); }
+}
+
+async function markAllNotifs() {
+  try {
+    await apiCall("/notifications/read-all", "PATCH");
+    showToast("All marked read ✅");
+    await loadNotifs();
+  } catch(e) { showToast(e.message, "error"); }
+}
+</script>
+</body>
+</html>

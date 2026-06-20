@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | My Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+  .avatar { width:80px;height:80px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:800;color:#000; }
+  .badge-item { display:inline-flex;align-items:center;gap:0.4rem;padding:0.5rem 1rem;border-radius:20px;font-size:0.85rem;font-weight:600; margin:0.3rem; }
+  .earned  { background:rgba(0,210,106,0.15);color:var(--accent);border:1px solid var(--accent); }
+  .locked  { background:#1a1a1a;color:#555;border:1px solid #333; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <span class="navbar-brand">TURFFIQ</span>
+  <div class="navbar-links">
+    <a href="dashboard.html" style="color:#aaa;text-decoration:none">← Dashboard</a>
+    <button class="btn-secondary btn-sm" onclick="clearSession()">Logout</button>
+  </div>
+</nav>
+<div class="page-wrap" style="max-width:800px">
+  <!-- Profile header -->
+  <div class="card" style="display:flex;gap:1.5rem;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap">
+    <div class="avatar" id="avatarEl">?</div>
+    <div style="flex:1">
+      <h2 id="pName" style="margin-bottom:0.25rem">–</h2>
+      <p style="color:#aaa;font-size:0.9rem" id="pMeta">–</p>
+      <div style="margin-top:0.5rem" id="pLevel"></div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid-4" style="margin-bottom:1.5rem">
+    <div class="stat-box"><h2 id="statM">0</h2><p>Matches</p></div>
+    <div class="stat-box"><h2 id="statW">0</h2><p>Wins</p></div>
+    <div class="stat-box"><h2 id="statR" style="color:#ffd700">0.0</h2><p>Rating</p></div>
+    <div class="stat-box"><h2 id="statP">0</h2><p>Points</p></div>
+  </div>
+
+  <!-- Badges -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <h3 class="section-title">Badges</h3>
+    <div id="badges">
+      <span class="badge-item locked">🔥 Active Player</span>
+      <span class="badge-item locked">👑 Top Performer</span>
+      <span class="badge-item locked">🛡️ Team Player</span>
+    </div>
+  </div>
+
+  <!-- Match History -->
+  <div class="card">
+    <h3 class="section-title">Match History</h3>
+    <div id="historyList"><p style="color:#888">Loading…</p></div>
+  </div>
+</div>
+<script src="../scripts/api.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = getUser();
+  if (!user.id) { window.location.href="login.html"; return; }
+
+  document.getElementById("avatarEl").innerText = user.name?.[0]?.toUpperCase() || "?";
+  document.getElementById("pName").innerText = user.name || "–";
+  document.getElementById("pMeta").innerText = `📱 ${user.phone||"–"} · 📍 ${user.location||"–"} · ${user.gender||""} ${user.age||""}`;
+  document.getElementById("pLevel").innerHTML = `<span class="badge badge-green">${user.player_level||"Beginner"}</span>`;
+  document.getElementById("statM").innerText = user.matches_played > 0 ? user.matches_played : "---";
+  document.getElementById("statW").innerText = user.wins > 0 ? user.wins : "---";
+  document.getElementById("statR").innerText = (user.rating && user.rating > 0) ? user.rating : "---";
+  document.getElementById("statP").innerText = user.points > 0 ? user.points : "---";
+
+  // Unlock badges
+  const badges = document.getElementById("badges");
+  const mp = user.matches_played || 0;
+  const w  = user.wins || 0;
+  const r  = user.rating || 0;
+  badges.innerHTML = `
+    <span class="badge-item ${mp>=1?'earned':'locked'}">🔥 Active Player</span>
+    <span class="badge-item ${w>=5?'earned':'locked'}">👑 Top Performer</span>
+    <span class="badge-item ${r>=4?'earned':'locked'}">🛡️ Team Player</span>`;
+
+  try {
+    const bookings = await apiCall("/bookings/my");
+    const el = document.getElementById("historyList");
+    el.innerHTML = bookings.length
+      ? bookings.map(b=>`
+          <div style="display:flex;justify-content:space-between;padding:0.75rem 0;border-bottom:1px solid #222;font-size:0.9rem">
+            <span>📅 ${b.date||"–"}</span>
+            <span class="badge ${b.status==='Confirmed'?'badge-green':'badge-yellow'}">${b.status}</span>
+            <span style="color:#aaa">₹${b.total_cost}</span>
+          </div>`).join("")
+      : `<div class="empty-state"><div class="icon">🏟️</div><p>No matches yet.</p></div>`;
+  } catch(e){}
+});
+</script>
+</body>
+</html>

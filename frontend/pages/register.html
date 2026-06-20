@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Register</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+  body { display:flex; align-items:flex-start; justify-content:center; padding:2rem 1rem; min-height:100vh; }
+  .wrap { width:100%; max-width:620px; }
+  h1 { color:var(--accent); font-size:1.8rem; font-weight:800; margin-bottom:0.3rem; }
+  .otp-box { display:none; background:#111; border:1px dashed var(--accent); border-radius:8px; padding:1.2rem; margin-top:1rem; }
+  .otp-display { font-family:monospace; font-size:1.4rem; color:var(--accent); letter-spacing:4px; text-align:center; margin:0.5rem 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="text-align:center;margin-bottom:1.5rem;">
+    <a href="selection.html" style="color:#888;font-size:0.85rem;text-decoration:none">← Back</a>
+    <h1 id="pageTitle">Create Player Account</h1>
+    <p style="color:var(--text-secondary)">All fields are required</p>
+  </div>
+
+  <div class="card">
+    <form id="regForm">
+      <div class="grid-2">
+        <div>
+          <label>Full Name</label>
+          <input id="name" type="text" required placeholder="Your name">
+        </div>
+        <div>
+          <label>Phone Number</label>
+          <input id="phone" type="tel" required placeholder="e.g. 9876543210">
+        </div>
+        <div>
+          <label>Age</label>
+          <input id="age" type="number" required placeholder="24">
+        </div>
+        <div>
+          <label>Gender</label>
+          <select id="gender" required>
+            <option value="">Select</option>
+            <option>Male</option><option>Female</option><option>Other</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Player Fields -->
+      <div id="playerFields">
+        <div class="grid-2">
+          <div>
+            <label>Sports Interest</label>
+            <select id="sport" required>
+              <option value="">Select</option>
+              <option>Football</option><option>Cricket</option><option>Basketball</option><option>Tennis</option>
+            </select>
+          </div>
+          <div>
+            <label>Player Level</label>
+            <select id="level" required>
+              <option value="">Select</option>
+              <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Owner Fields -->
+      <div id="ownerFields" style="display:none">
+        <label>Turf Facility Name</label>
+        <input id="turf_name" type="text" placeholder="e.g. Champions Arena">
+      </div>
+
+      <label>Location (City / Area)</label>
+      <input id="location" type="text" required placeholder="e.g. London">
+
+      <label>Password</label>
+      <input id="password" type="password" required placeholder="Min 6 characters">
+
+      <p id="errMsg" style="color:var(--danger);font-size:0.85rem;margin-top:0.75rem;display:none"></p>
+
+      <!-- OTP Box -->
+      <div class="otp-box" id="otpBox">
+        <p style="color:#aaa;font-size:0.85rem;margin-bottom:0.5rem" id="otpInstruction">📱 OTP sent to your phone!</p>
+        <p class="otp-display" id="otpDisplay"></p>
+        <label style="margin-top:0.5rem">Enter OTP</label>
+        <input id="otp" type="text" placeholder="Enter 6-digit OTP" maxlength="6">
+        <button type="button" class="btn-primary" id="verifyBtn" style="margin-top:0.75rem">Verify & Create Account</button>
+      </div>
+
+      <button type="submit" class="btn-primary" id="otpBtn">Send OTP & Verify Phone</button>
+    </form>
+  </div>
+  <p style="text-align:center;margin-top:1rem;color:#888;font-size:0.9rem">
+    Already have an account? <a href="login.html" style="color:var(--accent)">Login</a>
+  </p>
+</div>
+<script src="../scripts/api.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const role   = params.get("role") === "owner" ? "Turf Owner" : "User";
+  let otpPhone = null;
+
+  if (role === "Turf Owner") {
+    document.getElementById("pageTitle").innerText = "Create Turf Owner Account";
+    document.getElementById("playerFields").style.display = "none";
+    document.getElementById("ownerFields").style.display  = "block";
+    // Remove required from player-only fields
+    document.getElementById("sport").removeAttribute("required");
+    document.getElementById("level").removeAttribute("required");
+  }
+
+  document.getElementById("regForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const phone = document.getElementById("phone").value.trim();
+    const err   = document.getElementById("errMsg");
+    err.style.display = "none";
+
+    if (role === "Turf Owner") {
+      // Call real backend OTP endpoint
+      const btn = document.getElementById("otpBtn");
+      showLoading(btn, true);
+      try {
+        const res = await apiCall("/auth/send-otp", "POST", { phone });
+        otpPhone = phone;
+        document.getElementById("otpBox").style.display  = "block";
+        document.getElementById("otpBtn").style.display  = "none";
+        // Show the OTP for testing (backend returns it)
+        document.getElementById("otpDisplay").innerText = res.otp;
+        document.getElementById("otpInstruction").innerHTML =
+          `📱 OTP sent to <strong>${phone}</strong>. For testing, OTP is shown below:`;
+        showToast("OTP sent successfully!");
+      } catch(ex) {
+        err.innerText = ex.message; err.style.display = "block";
+        showLoading(btn, false, "Send OTP & Verify Phone");
+      }
+    } else {
+      // Player: simple simulated OTP (unchanged behavior)
+      otpPhone = phone;
+      document.getElementById("otpBox").style.display  = "block";
+      document.getElementById("otpBtn").style.display  = "none";
+      document.getElementById("otpDisplay").innerText   = "1234";
+      document.getElementById("otpInstruction").innerHTML =
+        `📱 OTP sent to <strong>${phone}</strong>. Enter <strong>1234</strong> to verify.`;
+    }
+  });
+
+  document.getElementById("verifyBtn").addEventListener("click", async () => {
+    const otpVal = document.getElementById("otp").value.trim();
+    const err    = document.getElementById("errMsg");
+    const btn    = document.getElementById("verifyBtn");
+    err.style.display = "none";
+
+    if (role === "Turf Owner") {
+      // Verify via real backend
+      showLoading(btn, true);
+      try {
+        await apiCall("/auth/verify-otp", "POST", { phone: otpPhone, otp: otpVal });
+        showToast("Phone verified! ✅ Creating account...");
+        await doRegister();
+      } catch(ex) {
+        err.innerText = ex.message; err.style.display = "block";
+        showLoading(btn, false, "Verify & Create Account");
+      }
+    } else {
+      // Player: simple check
+      if (otpVal !== "1234") {
+        err.innerText = "Invalid OTP"; err.style.display = "block"; return;
+      }
+      showLoading(btn, true);
+      await doRegister();
+    }
+  });
+
+  async function doRegister() {
+    const err = document.getElementById("errMsg");
+    const btn = document.getElementById("verifyBtn");
+
+    const payload = {
+      name:     document.getElementById("name").value,
+      phone:    document.getElementById("phone").value,
+      age:      document.getElementById("age").value,
+      gender:   document.getElementById("gender").value,
+      location: document.getElementById("location").value,
+      password: document.getElementById("password").value,
+      role:     role
+    };
+
+    if (role === "User") {
+      payload.sports_interest = [document.getElementById("sport").value];
+      payload.player_level    = document.getElementById("level").value;
+    } else {
+      payload.turf_name = document.getElementById("turf_name").value;
+    }
+
+    try {
+      const res = await apiCall("/auth/register", "POST", payload);
+      setSession(res.token, res.user);
+      showToast("Account created! Welcome to TURFFIQ 🎉");
+      setTimeout(() => {
+        window.location.href = role === "Turf Owner" ? "owner_dashboard.html" : "dashboard.html";
+      }, 800);
+    } catch(e) {
+      err.innerText = e.message; err.style.display = "block";
+      showLoading(btn, false, "Verify & Create Account");
+    }
+  }
+</script>
+</body>
+</html>

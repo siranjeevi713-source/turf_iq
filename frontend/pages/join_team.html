@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Join Team</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+  .filters { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+  .filters input, .filters select { flex:1; min-width:140px; margin-top:0; }
+  .team-card { border-left:3px solid var(--accent); margin-bottom:1rem; }
+  .team-card.full { border-left-color:#444; opacity:0.6; }
+  .count-bar { background:#222; border-radius:10px; height:6px; margin:0.5rem 0; overflow:hidden; }
+  .count-fill { background:var(--accent); height:100%; border-radius:10px; transition:width 0.4s; }
+  .just-joined { border-left-color:#3b82f6 !important; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <span class="navbar-brand">TURFFIQ</span>
+  <a href="dashboard.html" style="color:#aaa;font-size:0.9rem;text-decoration:none">← Dashboard</a>
+</nav>
+
+<div class="page-wrap">
+  <h2 style="margin-bottom:0.3rem">🤝 Find & Join a Team</h2>
+  <p style="color:#aaa;font-size:0.9rem;margin-bottom:1.5rem">Browse open matches near you and join instantly</p>
+
+  <div class="filters">
+    <input id="fLoc"   type="text" placeholder="🔍 Filter by City">
+    <select id="fSport">
+      <option value="">Any Sport</option>
+      <option>Football</option><option>Cricket</option><option>Basketball</option><option>Tennis</option>
+    </select>
+    <button class="btn-primary" style="width:auto;margin-top:0;padding:0.75rem 1.5rem" onclick="loadTeams()">Search</button>
+  </div>
+
+  <div id="teamsList">
+    <div class="empty-state"><div class="icon">⏳</div><p>Loading matches…</p></div>
+  </div>
+</div>
+
+<script src="../scripts/api.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", loadTeams);
+
+async function loadTeams() {
+  const loc   = document.getElementById("fLoc").value.trim();
+  const sport = document.getElementById("fSport").value;
+  const el    = document.getElementById("teamsList");
+  el.innerHTML = `<div class="empty-state"><div class="icon">⏳</div><p>Searching…</p></div>`;
+  try {
+    let url = "/teams/?";
+    if (loc)   url += `location=${encodeURIComponent(loc)}&`;
+    if (sport) url += `sport=${encodeURIComponent(sport)}&`;
+    const teams = await apiCall(url);
+    if (!teams.length) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">🏟️</div><p>No open teams found. <a href="team_create.html" style="color:var(--accent)">Create one!</a></p></div>`;
+      return;
+    }
+    const user = getUser();
+    el.innerHTML = teams.map(t => {
+      const full   = t.current_players_count >= t.required_players;
+      const isMine = t.creator_id === user.id;
+      const isIn   = (t.players || []).includes(user.id);
+      const pct    = Math.min(100, Math.round(t.current_players_count / t.required_players * 100));
+
+      let actions = "";
+      if (isIn || isMine) {
+        actions = `
+          <a href="chat.html?team_id=${t._id}" class="btn-primary btn-sm" style="text-decoration:none">💬 Team Chat</a>
+          ${isMine ? `<a href="team_create.html?book_mode=1&team_id=${t._id}" class="btn-secondary btn-sm" style="text-decoration:none">🏟️ Book Turf</a>` : ""}`;
+      } else if (full) {
+        actions = `<button class="btn-secondary btn-sm" disabled style="opacity:0.5">🚫 Team Full</button>`;
+      } else {
+        actions = `<button class="btn-primary btn-sm" onclick="joinTeam('${t._id}',this)">⚡ Join Squad</button>`;
+      }
+
+      return `
+      <div class="card team-card ${full && !isIn && !isMine ? "full":""} ${isIn||isMine?"just-joined":""}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.5rem">
+          <div>
+            <strong style="font-size:1.05rem">${t.team_name}</strong>
+            <span class="badge ${full ? "badge-red":"badge-green"}" style="margin-left:0.5rem">${full?"Full":"Open"}</span>
+            ${isIn || isMine ? `<span class="badge badge-yellow" style="margin-left:0.25rem">${isMine?"👑 Admin":"✅ Joined"}</span>` : ""}
+          </div>
+          <span class="badge badge-gray">${t.sport}</span>
+        </div>
+        <p style="color:#aaa;font-size:0.85rem;margin:0.5rem 0">📍 ${t.location} &nbsp;⏰ ${(t.date_time||"TBD").slice(0,16).replace("T"," ")}</p>
+        <div style="display:flex;align-items:center;gap:0.75rem;font-size:0.85rem">
+          <span style="color:#aaa;white-space:nowrap">${t.current_players_count} / ${t.required_players}</span>
+          <div class="count-bar" style="flex:1"><div class="count-fill" style="width:${pct}%"></div></div>
+          <span style="color:#aaa;white-space:nowrap">${t.required_players - t.current_players_count} left</span>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-top:1rem;flex-wrap:wrap">${actions}</div>
+      </div>`;
+    }).join("");
+  } catch(e) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p style="color:var(--danger)">${e.message}</p></div>`;
+  }
+}
+
+async function joinTeam(teamId, btn) {
+  showLoading(btn, true);
+  try {
+    const res = await apiCall(`/teams/${teamId}/join`, "POST");
+    showToast(res.message + " 🎉");
+    // Refresh list to show chat button
+    await loadTeams();
+    // Also open chat after join
+    setTimeout(() => { window.location.href = `chat.html?team_id=${teamId}`; }, 1200);
+  } catch(e) {
+    showToast(e.message, "error");
+    showLoading(btn, false, "⚡ Join Squad");
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Notifications</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+<nav class="navbar">
+  <span class="navbar-brand">TURFFIQ</span>
+  <div class="navbar-links">
+    <a href="dashboard.html" style="color:#aaa;text-decoration:none">← Dashboard</a>
+    <button class="btn-secondary btn-sm" id="readAllBtn" onclick="markAllRead()">Mark All Read</button>
+  </div>
+</nav>
+<div class="page-wrap" style="max-width:700px">
+  <h2 style="margin-bottom:1.5rem">🔔 Notifications</h2>
+  <div id="list"><div class="empty-state"><div class="icon">⏳</div><p>Loading…</p></div></div>
+</div>
+<script src="../scripts/api.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", loadNotifs);
+
+async function loadNotifs() {
+  const el = document.getElementById("list");
+  try {
+    const notifs = await apiCall("/notifications/");
+    if (!notifs.length) {
+      el.innerHTML=`<div class="empty-state"><div class="icon">✅</div><p>You're all caught up!</p></div>`;
+      return;
+    }
+    el.innerHTML = notifs.map(n => `
+      <div class="card" style="margin-bottom:0.75rem;border-left:3px solid ${n.read?'#333':'var(--accent)'}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <p style="font-weight:${n.read?'400':'700'};margin-bottom:0.3rem">${n.payload?.message||n.type}</p>
+            <p style="color:#888;font-size:0.8rem">${n.created_at?.slice(0,16).replace('T',' ')||''}</p>
+          </div>
+          ${!n.read?`<button class="btn-secondary btn-sm" onclick="markRead('${n._id}',this)">Mark Read</button>`:`<span class="badge badge-gray">Read</span>`}
+        </div>
+      </div>`).join("");
+  } catch(e) { el.innerHTML=`<p style="color:var(--danger)">${e.message}</p>`; }
+}
+
+async function markRead(id, btn) {
+  try { await apiCall(`/notifications/${id}/read`,"PATCH"); btn.closest(".card").style.borderLeftColor="#333"; btn.remove(); }
+  catch(e) { showToast(e.message,"error"); }
+}
+
+async function markAllRead() {
+  try { await apiCall("/notifications/read-all","PATCH"); await loadNotifs(); showToast("All marked read"); }
+  catch(e) { showToast(e.message,"error"); }
+}
+</script>
+</body>
+</html>

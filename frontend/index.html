@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0a0a; display:flex; justify-content:center; align-items:center; height:100vh; font-family:'Inter',sans-serif; overflow:hidden; }
+  .splash { text-align:center; transition: opacity 0.5s ease; }
+  .logo { width:150px; height:150px; object-fit:contain; border-radius:50%; box-shadow:0 0 40px rgba(0,210,106,0.4); animation:zoom 1s ease-out; }
+  .brand { font-size:3rem; font-weight:800; color:#00d26a; letter-spacing:4px; margin-top:1.2rem; opacity:0; animation:fadeUp 0.6s 0.6s forwards; }
+  .tagline { color:#666; margin-top:0.4rem; font-size:0.95rem; opacity:0; animation:fadeUp 0.6s 1s forwards; }
+  .bar { width:180px; height:2px; background:#1a1a1a; border-radius:10px; margin:2.5rem auto 0; overflow:hidden; }
+  .bar-fill { height:100%; background:#00d26a; width:0; border-radius:10px; animation:load 1.8s linear 1.2s forwards; }
+  @keyframes zoom    { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+  @keyframes fadeUp  { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes load    { from{width:0} to{width:100%} }
+  .fade-out { opacity: 0; }
+</style>
+</head>
+<body>
+<div class="splash" id="splash">
+  <img src="assets/Logo.jpeg" class="logo" alt="TURFFIQ Logo">
+  <p class="brand">TURFFIQ</p>
+  <p class="tagline">Book. Play. Win.</p>
+  <div class="bar"><div class="bar-fill"></div></div>
+</div>
+<script>
+  // Execute after 3 seconds total
+  setTimeout(() => {
+    document.getElementById("splash").classList.add("fade-out");
+    setTimeout(() => {
+      const token = localStorage.getItem("token");
+      const user  = JSON.parse(localStorage.getItem("user") || "{}");
+      if (token) {
+        window.location.href = user.role === "Turf Owner" ? "pages/owner_dashboard.html" : "pages/dashboard.html";
+      } else {
+        window.location.href = "pages/selection.html";
+      }
+    }, 500); // Wait for fade-out animation
+  }, 2500); // 2.5s display + 0.5s fade = 3s total
+</script>
+</body>
+</html>

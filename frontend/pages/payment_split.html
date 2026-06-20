@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Split Payment</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  .player-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:1rem 1.25rem; border-radius:10px; border:1px solid var(--border);
+    margin-bottom:0.75rem; transition:all 0.3s;
+  }
+  .player-row.paid   { border-color:var(--accent); background:rgba(0,210,106,0.06); }
+  .player-row.pending{ border-color:#444; }
+  .status-pill {
+    padding:0.3rem 0.9rem; border-radius:20px; font-size:0.8rem; font-weight:700;
+  }
+  .pill-paid    { background:rgba(0,210,106,0.2); color:var(--accent); }
+  .pill-pending { background:rgba(246,201,14,0.15); color:#f6c90e; }
+  .progress-bar { background:#222; border-radius:10px; height:10px; margin:1rem 0; overflow:hidden; }
+  .progress-fill { background:var(--accent); height:100%; border-radius:10px; transition:width 0.5s ease; }
+  .confirmed-banner { background:rgba(0,210,106,0.12); border:1px solid var(--accent); border-radius:12px; padding:1.5rem; text-align:center; margin-bottom:1.5rem; display:none; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <span class="navbar-brand">TURFFIQ</span>
+  <div class="navbar-links">
+    <a href="dashboard.html" style="color:#aaa;font-size:0.9rem;text-decoration:none">← Dashboard</a>
+  </div>
+</nav>
+
+<div class="page-wrap" style="max-width:680px">
+  <h2 style="margin-bottom:0.3rem">🤝 Split Payment</h2>
+  <p style="color:#aaa;font-size:0.9rem;margin-bottom:1.5rem">Each player pays their share. Booking confirms when everyone pays.</p>
+
+  <!-- Confirmed Banner -->
+  <div class="confirmed-banner" id="confirmedBanner">
+    <div style="font-size:3rem;margin-bottom:0.5rem">🎉</div>
+    <h2 style="color:var(--accent);margin:0">Booking Confirmed!</h2>
+    <p style="color:#aaa;margin-top:0.5rem">All players have paid. Your turf is booked!</p>
+    <a href="dashboard.html" class="btn-primary" style="display:inline-block;margin-top:1rem;width:auto;padding:0.75rem 2rem;text-decoration:none">Go to Dashboard</a>
+  </div>
+
+  <!-- Summary Card -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+      <div>
+        <h3 style="margin:0" id="bookingSummary">Booking Details</h3>
+        <p style="color:#888;font-size:0.85rem;margin-top:0.3rem" id="bookingStatus">–</p>
+      </div>
+      <div style="text-align:right">
+        <p style="color:#aaa;font-size:0.85rem;margin:0">Total</p>
+        <h2 style="color:var(--accent);margin:0" id="totalAmount">₹–</h2>
+      </div>
+    </div>
+    <!-- Progress -->
+    <div style="margin-top:1rem">
+      <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:#888;margin-bottom:0.25rem">
+        <span id="paidLabel">--- paid</span>
+        <span id="pendingLabel">--- pending</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- Players List -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
+       <h3 class="section-title" style="margin:0">Players & Payment Status</h3>
+       <button class="btn-primary btn-sm" style="background:#f6c90e; color:#000; width:auto; padding:0.4rem 1rem" onclick="demoAutoPayAll()">⚡ [Demo] Auto-Pay All</button>
+    </div>
+    <div id="paymentsList"><p style="color:#888">Loading…</p></div>
+  </div>
+</div>
+
+<script src="../scripts/api.js"></script>
+<script>
+const params    = new URLSearchParams(window.location.search);
+const bookingId = params.get("booking_id");
+const teamId    = params.get("team_id");
+const user      = getUser();
+let socket      = null;
+let allPlayers  = {};  // user_id → name map
+
+document.addEventListener("DOMContentLoaded", async () => {
+  if (!user.id) { window.location.href = "login.html"; return; }
+  if (!bookingId) { showToast("No booking ID in URL","error"); return; }
+
+  // Connect Socket for real-time payment updates
+  socket = io("http://localhost:5000");
+  socket.on("connect", () => {
+    socket.emit("join_user_room", { user_id: user.id });
+    if (teamId) socket.emit("join_team_room", { team_id: teamId, user_id: user.id, name: user.name });
+  });
+  socket.on("payment_update", async () => {
+    // Refresh on any payment update in our team room
+    await loadPayments();
+  });
+  socket.on("notification", async n => {
+    showToast("🔔 " + (n.payload?.message || n.type));
+    if (n.type === "booking_confirmed") {
+      document.getElementById("confirmedBanner").style.display = "block";
+      await loadPayments();
+    }
+  });
+
+  // Load team members to map IDs to names
+  if (teamId) {
+    try {
+      const team = await apiCall(`/teams/${teamId}`);
+      (team.players || []).forEach(pid => allPlayers[pid] = pid); // placeholder
+    } catch(e) {}
+  }
+
+  await loadPayments();
+});
+
+async function loadPayments() {
+  try {
+    const data = await apiCall(`/payments/${bookingId}`);
+    updateSummary(data);
+    renderPlayers(data.payments);
+    if (data.all_paid) {
+      document.getElementById("confirmedBanner").style.display = "block";
+    }
+  } catch(e) {
+    document.getElementById("paymentsList").innerHTML = `<p style="color:var(--danger)">${e.message}</p>`;
+  }
+}
+
+function updateSummary(data) {
+  const total   = data.total_needed || 0;
+  const paid    = data.total_paid   || 0;
+  const pct     = total > 0 ? Math.round(paid / total * 100) : 0;
+
+  document.getElementById("totalAmount").innerText   = `₹${total}`;
+  document.getElementById("paidLabel").innerText     = `₹${paid.toFixed(2)} paid`;
+  document.getElementById("pendingLabel").innerText  = `₹${(total-paid).toFixed(2)} pending`;
+  document.getElementById("progressFill").style.width = `${pct}%`;
+  document.getElementById("bookingStatus").innerText  = data.all_paid ? "✅ Confirmed" : `${pct}% paid`;
+}
+
+function renderPlayers(payments) {
+  const el = document.getElementById("paymentsList");
+  if (!payments || !payments.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">💳</div><p>No payment records found.</p></div>`;
+    return;
+  }
+  el.innerHTML = payments.map(p => {
+    const isMe   = p.user_id === user.id;
+    const isPaid = p.status === "paid";
+    const label  = isMe ? "You" : `Player …${p.user_id.slice(-4)}`;
+
+    return `
+    <div class="player-row ${isPaid ? "paid":"pending"}" id="pr_${p._id}">
+      <div>
+        <p style="font-weight:700;margin:0">${label}</p>
+        <p style="color:#888;font-size:0.8rem;margin:0.2rem 0 0">
+          ${isPaid ? `TXN: ${p.txn_id}` : `Share: ₹${p.amount}`}
+        </p>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem">
+        <span class="status-pill ${isPaid ? "pill-paid":"pill-pending"}">
+          ${isPaid ? "🟢 Paid" : "🟡 Pending"}
+        </span>
+        ${isMe && !isPaid
+          ? `<button class="btn-primary btn-sm" id="payBtn_${p._id}" onclick="payMyShare('${p._id}',this)">Pay ₹${p.amount}</button>`
+          : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function payMyShare(paymentId, btn) {
+  showLoading(btn, true);
+  try {
+    const res = await apiCall(`/payments/${paymentId}/pay`, "POST");
+    showToast(res.message);
+
+    // Broadcast to team room
+    if (socket && teamId) {
+      socket.emit("payment_update", {
+        team_id: teamId, user_id: user.id, name: user.name,
+        message: `${user.name} paid their share!`
+      });
+    }
+
+    if (res.booking_confirmed) {
+      document.getElementById("confirmedBanner").style.display = "block";
+    }
+    await loadPayments();
+  } catch(e) {
+    showToast(e.message, "error");
+    showLoading(btn, false, `Pay ₹${btn.innerText.replace("Pay ₹","")}`);
+  }
+}
+
+async function demoAutoPayAll() {
+  showToast("⚡ Forcing Demo Auto-Pay for all Pending Users...", "success");
+  
+  try {
+      const data = await apiCall(`/payments/${bookingId}`);
+      if (data.all_paid) {
+          showToast("All users are already paid!", "success");
+          return;
+      }
+      
+      const unpaid = data.payments.filter(p => p.status !== "paid");
+      for (let p of unpaid) {
+          try {
+             // We can simulate it cleanly
+             await apiCall(`/payments/${p._id}/pay`, "POST");
+          } catch(e) {}
+      }
+      
+      if (socket && teamId) {
+          socket.emit("payment_update", {
+            team_id: teamId, user_id: user.id, name: user.name,
+            message: `⚡ Demo: Auto Payment simulated successfully for everyone!`
+          });
+      }
+      await loadPayments();
+  } catch(e) {
+      showToast(e.message, "error");
+  }
+}
+</script>
+</body>
+</html>

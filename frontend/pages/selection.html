@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Welcome</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Inter',sans-serif;
+    background:#0e0e0e;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    background-image: url('../assets/stadium_bg.png');
+    background-size:cover; background-position:center;
+  }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:0; }
+  .content { position:relative; z-index:1; text-align:center; padding:2rem; }
+  .logo { width:100px; border-radius:50%; box-shadow:0 0 30px rgba(0,210,106,0.5); }
+  h1 { font-size:3rem; font-weight:800; color:#00d26a; letter-spacing:3px; margin:1rem 0 0.5rem; }
+  p  { color:#aaa; font-size:1rem; margin-bottom:3rem; }
+  .cards { display:flex; gap:2rem; flex-wrap:wrap; justify-content:center; }
+  .sel-card {
+    background:rgba(20,20,20,0.85);
+    backdrop-filter:blur(12px);
+    border:1px solid #333;
+    border-radius:16px;
+    padding:2.5rem 3rem;
+    width:260px;
+    cursor:pointer;
+    transition:all 0.3s;
+    text-decoration:none;
+    color:#fff;
+    display:block;
+  }
+  .sel-card:hover { border-color:#00d26a; transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,210,106,0.2); }
+  .sel-card .icon { font-size:3rem; margin-bottom:1rem; }
+  .sel-card h2 { font-size:1.3rem; margin-bottom:0.5rem; }
+  .sel-card p  { color:#888; font-size:0.9rem; margin-bottom:1.5rem; }
+  .sel-btn {
+    display:block; width:100%; padding:0.8rem; border-radius:8px;
+    font-weight:700; font-size:0.95rem; border:none; cursor:pointer;
+  }
+  .btn-green { background:#00d26a; color:#000; }
+  .btn-blue  { background:#3b82f6; color:#fff; }
+</style>
+</head>
+<body>
+<div class="overlay"></div>
+<div class="content">
+  <img src="../assets/Logo.jpeg" class="logo" alt="Logo">
+  <h1>TURFFIQ</h1>
+  <p>Select your role to continue</p>
+  <div class="cards">
+    <a class="sel-card" href="login.html?role=player">
+      <div class="icon">⚽</div>
+      <h2>Player</h2>
+      <p>Find teams, book turfs, join matches</p>
+      <span class="sel-btn btn-green">Player Login</span>
+    </a>
+    <a class="sel-card" href="login.html?role=owner">
+      <div class="icon">🏟️</div>
+      <h2>Turf Owner</h2>
+      <p>Manage your facility, slots & earnings</p>
+      <span class="sel-btn btn-blue">Owner Login</span>
+    </a>
+  </div>
+</div>
+</body>
+</html>

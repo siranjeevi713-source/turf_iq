@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TURFFIQ | Create Team</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+  .step-panel { display:none; }
+  .step-panel.active { display:block; animation:fadeIn 0.4s; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .stepper { display:flex; margin-bottom:2rem; }
+  .step-dot { flex:1; text-align:center; font-size:0.8rem; color:#555; }
+  .step-dot::before { content:attr(data-n); display:inline-block; width:28px;height:28px;line-height:28px;border-radius:50%;background:#222;border:2px solid #444;margin-bottom:4px; }
+  .step-dot.done::before   { background:var(--accent);border-color:var(--accent);color:#000;font-weight:800; }
+  .step-dot.active::before { border-color:var(--accent);color:var(--accent); }
+  .turf-card { cursor:pointer; border:1px solid var(--border); border-radius:10px; padding:1rem; margin-bottom:0.75rem; transition:all 0.2s; }
+  .turf-card.selected, .turf-card:hover { border-color:var(--accent); background:rgba(0,210,106,0.05); }
+  .svc-row { display:flex; justify-content:space-between; align-items:center; padding:0.75rem; background:#111; border-radius:8px; margin-bottom:0.5rem; }
+  .pay-btn { flex:1; padding:0.85rem; border-radius:8px; border:1px solid var(--border); background:#111; color:#fff; cursor:pointer; text-align:center; transition:all 0.2s; font-size:0.95rem; }
+  .pay-btn.active { border-color:var(--accent); background:rgba(0,210,106,0.1); color:var(--accent); font-weight:700; }
+  .sum-row { display:flex; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid #222; font-size:0.9rem; }
+  /* Success panel */
+  .success-panel { text-align:center; padding:3rem 2rem; }
+  .success-panel .big-icon { font-size:4rem; margin-bottom:1rem; }
+  .success-panel h2 { color:var(--accent); margin-bottom:0.5rem; }
+  .action-card { border:1px solid var(--border); border-radius:12px; padding:1.5rem; margin-top:1rem; text-align:center; cursor:pointer; transition:all 0.2s; }
+  .action-card:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .action-card .icon { font-size:2rem; margin-bottom:0.5rem; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <span class="navbar-brand">TURFFIQ</span>
+  <a href="dashboard.html" style="color:#aaa;font-size:0.9rem;text-decoration:none">← Dashboard</a>
+</nav>
+
+<div class="page-wrap" style="max-width:700px">
+  <h2 style="margin-bottom:0.3rem">⚽ Create Team</h2>
+  <p style="color:#aaa;font-size:0.9rem;margin-bottom:1.5rem">Create your team, let players join, then book a turf together</p>
+
+  <!-- Stepper -->
+  <div class="stepper">
+    <div class="step-dot active" data-n="1" id="s1">Team Details</div>
+    <div class="step-dot"        data-n="2" id="s2">Created!</div>
+    <div class="step-dot"        data-n="3" id="s3">Book Turf</div>
+    <div class="step-dot"        data-n="4" id="s4">Services</div>
+    <div class="step-dot"        data-n="5" id="s5">Payment</div>
+  </div>
+
+  <!-- Step 1: Team Details -->
+  <div class="step-panel active" id="p1">
+    <div class="card">
+      <h3 class="section-title">Team Information</h3>
+      <label>Team Name</label>
+      <input id="team_name" type="text" required placeholder="e.g. Strikers FC">
+      <div class="grid-2">
+        <div>
+          <label>Sport</label>
+          <select id="sport">
+            <option>Football</option><option>Cricket</option><option>Basketball</option><option>Tennis</option>
+          </select>
+        </div>
+        <div><label>Location / City</label><input id="location" type="text" placeholder="e.g. London"></div>
+        <div><label>Match Date</label><input id="match_date" type="date" required></div>
+        <div><label>Time</label><input id="match_time" type="time" value="18:00" required></div>
+      </div>
+      <label>Total Players Required</label>
+      <input id="req_players" type="number" min="2" max="22" value="10">
+      <p id="step1Err" style="color:var(--danger);font-size:0.85rem;display:none;margin-top:0.5rem"></p>
+      <button class="btn-primary" id="createTeamBtn" onclick="createTeam()">Create Team →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Team Created – Wait or Book -->
+  <div class="step-panel" id="p2">
+    <div class="card success-panel">
+      <div class="big-icon">🎉</div>
+      <h2>Team Created!</h2>
+      <p style="color:#aaa" id="teamPlayerCount">1 / 10 — Need 9 more players</p>
+      <p style="color:#888;font-size:0.85rem;margin:0.5rem 0 1.5rem">Share the team invite link or wait for players, then book the turf.</p>
+
+      <div class="grid-2">
+        <div class="action-card" onclick="goToChat()">
+          <div class="icon">💬</div>
+          <h4>Team Chat</h4>
+          <p style="color:#aaa;font-size:0.85rem">Coordinate with members</p>
+        </div>
+        <div class="action-card" onclick="setStep(3)">
+          <div class="icon">🏟️</div>
+          <h4>Book Turf Now</h4>
+          <p style="color:#aaa;font-size:0.85rem">Only you (admin) can book</p>
+        </div>
+      </div>
+
+      <!-- Demo Auto-Fill -->
+      <div style="margin-top:1.5rem; padding:1rem; border:1px dashed #f6c90e; border-radius:10px; background:rgba(246,201,14,0.05)">
+        <p style="color:#f6c90e;font-size:0.82rem;margin:0 0 0.6rem">⚡ <strong>Demo Mode</strong> — Team incomplete?</p>
+        <button class="btn-primary btn-sm" style="background:#f6c90e;color:#000;width:auto;padding:0.4rem 1.2rem" onclick="demoAutoFillTeam()">Auto-Fill Team with Demo Players</button>
+      </div>
+      
+      <a href="dashboard.html" style="display:block;margin-top:1.5rem;color:#888;font-size:0.9rem;text-decoration:none">← Back to Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Step 3: Select Turf + Slot -->
+  <div class="step-panel" id="p3">
+    <div class="card">
+      <h3 class="section-title">Choose Turf & Slot</h3>
+      <p style="color:#aaa;font-size:0.85rem;margin-bottom:1rem">Turfs near <strong id="locLabel">–</strong></p>
+      <div id="turfList"><p style="color:#888">Loading turfs…</p></div>
+      <div id="slotSection" style="display:none;margin-top:1.5rem">
+        <h4 style="margin-bottom:0.5rem" id="slotLabel">Available Slots</h4>
+        <div class="slot-grid" id="slotGrid"></div>
+      </div>
+      <div style="display:flex;gap:1rem;margin-top:1.5rem">
+        <button class="btn-secondary" style="flex:1" onclick="setStep(2)">← Back</button>
+        <button class="btn-primary" style="flex:2;margin-top:0" id="nextToSvcs" disabled onclick="setStep(4)">Next: Services →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Services -->
+  <div class="step-panel" id="p4">
+    <div class="card">
+      <h3 class="section-title">Add-on Services</h3>
+      <div class="svc-row">
+        <label style="margin:0;color:#fff"><input type="checkbox" class="svc" value="Water Bottles" data-price="20"> 💧 Water Bottles</label>
+        <span style="color:var(--accent)">+₹20/player</span>
+      </div>
+      <div class="svc-row">
+        <label style="margin:0;color:#fff"><input type="checkbox" class="svc" value="Snacks" data-price="50"> 🍿 Snacks</label>
+        <span style="color:var(--accent)">+₹50</span>
+      </div>
+      <div class="svc-row">
+        <label style="margin:0;color:#fff"><input type="checkbox" class="svc" value="Energy Drinks" data-price="80"> ⚡ Energy Drinks</label>
+        <span style="color:var(--accent)">+₹80</span>
+      </div>
+      <div class="svc-row">
+        <label style="margin:0;color:#fff"><input type="checkbox" class="svc" value="Equipment" data-price="150"> 🎽 Equipment</label>
+        <span style="color:var(--accent)">+₹150</span>
+      </div>
+      <div style="display:flex;gap:1rem;margin-top:1.5rem">
+        <button class="btn-secondary" style="flex:1" onclick="setStep(3)">← Back</button>
+        <button class="btn-primary" style="flex:2;margin-top:0" onclick="goToPayment()">Review & Pay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5: Payment -->
+  <div class="step-panel" id="p5">
+    <div class="card">
+      <h3 class="section-title">Booking Summary</h3>
+      <div class="sum-row"><span style="color:#aaa">Turf</span><strong id="sumTurf">–</strong></div>
+      <div class="sum-row"><span style="color:#aaa">Slot</span><strong id="sumSlot">–</strong></div>
+      <div class="sum-row"><span style="color:#aaa">Team</span><strong id="sumTeam">–</strong></div>
+      <div class="sum-row"><span style="color:#aaa">Services</span><strong id="sumSvcs">–</strong></div>
+      <div class="sum-row"><span style="color:#aaa">Slot Cost</span><strong id="sumTurfCost">₹–</strong></div>
+      <div class="sum-row"><span style="color:#aaa">Services Cost</span><strong id="sumSvcCost">---</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-top:1rem;padding-top:1rem;border-top:1px solid #333;font-size:1.3rem">
+        <span>Total</span><strong style="color:var(--accent)" id="sumTotal">---</strong>
+      </div>
+
+      <h4 style="margin-top:1.5rem;margin-bottom:0.5rem">Payment Mode</h4>
+      <div style="display:flex;gap:1rem">
+        <div class="pay-btn active" id="pm-single" onclick="selectPay('single')">💳 Pay Full Amount</div>
+        <div class="pay-btn"       id="pm-split"  onclick="selectPay('split')">🤝 Split with Team</div>
+      </div>
+      <p style="color:#888;font-size:0.82rem;margin-top:0.5rem" id="splitNote" style="display:none">
+        Each player pays <strong id="perPlayerAmt">–</strong> — booking confirms when everyone pays.
+      </p>
+
+      <p id="payErr" style="color:var(--danger);font-size:0.85rem;margin-top:0.75rem;display:none"></p>
+      <div style="display:flex;gap:1rem;margin-top:1.5rem">
+        <button class="btn-secondary" style="flex:1" onclick="setStep(4)">← Back</button>
+        <button class="btn-primary" style="flex:2;margin-top:0" id="payBtn" onclick="confirmBooking()">✅ Confirm & Pay</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../scripts/api.js"></script>
+<script>
+let state = { turf:null, slot:null, slotPrice:500, svcTotal:0, payMode:"single", teamId:null, bookingId:null };
+
+function setStep(n) {
+  document.querySelectorAll(".step-panel").forEach((p,i) => p.classList.toggle("active", i+1===n));
+  document.querySelectorAll(".step-dot").forEach((d,i) => {
+    d.classList.toggle("done",   i+1 < n);
+    d.classList.toggle("active", i+1 === n);
+  });
+  if (n === 3) loadTurfs();
+}
+
+// ── STEP 1: Create Team ──────────────────────────────────────────────────
+async function createTeam() {
+  const name = document.getElementById("team_name").value.trim();
+  const loc  = document.getElementById("location").value.trim();
+  const date = document.getElementById("match_date").value;
+  const time = document.getElementById("match_time").value;
+  const req  = parseInt(document.getElementById("req_players").value);
+  const btn  = document.getElementById("createTeamBtn");
+  const err  = document.getElementById("step1Err");
+  err.style.display = "none";
+
+  if (!name || !loc || !date) { showToast("Fill all required fields","error"); return; }
+  showLoading(btn, true);
+
+  try {
+    const res = await apiCall("/teams/create", "POST", {
+      team_name: name, sport: document.getElementById("sport").value,
+      location: loc, date_time: `${date}T${time}`, required_players: req
+    });
+    state.teamId = res.team_id;
+    document.getElementById("teamPlayerCount").innerText = res.players;
+    document.getElementById("locLabel").innerText = loc;
+    showToast("Team created! 🎉");
+    setStep(2);
+  } catch(e) {
+    err.innerText = e.message; err.style.display = "block";
+    showLoading(btn, false, "Create Team →");
+  }
+}
+
+function goToChat() {
+  if (state.teamId) window.location.href = `chat.html?team_id=${state.teamId}`;
+}
+
+async function demoAutoFillTeam() {
+  if (!state.teamId) { showToast("Create a team first!", "error"); return; }
+  try {
+    const res = await apiCall(`/teams/${state.teamId}/autofill`, "POST");
+    showToast(`⚡ ${res.message}`, "success");
+    // Reload team count display
+    const team = await apiCall(`/teams/${state.teamId}`);
+    const cnt = team.current_players_count;
+    const req = team.required_players;
+    document.getElementById("teamPlayerCount").innerText = `${cnt} / ${req} players joined`;
+  } catch(e) { showToast(e.message, "error"); }
+}
+// ── STEP 3: Load Turfs + Slots ───────────────────────────────────────────
+async function loadTurfs() {
+  const loc = document.getElementById("location").value.trim();
+  const el  = document.getElementById("turfList");
+  el.innerHTML = `<p style="color:#888">🔍 Searching turfs in ${loc||"your area"}…</p>`;
+  try {
+    // DEMO MODE: Pass location to backend — it auto-generates virtual turfs if empty
+    const turfs = await apiCall(`/turfs/?location=${encodeURIComponent(loc)}`);
+    if (!turfs || !turfs.length) {
+      el.innerHTML = `<p style="color:#aaa">No turfs found. Try entering a city name.</p>`;
+    } else {
+      el.innerHTML = turfs.map(t => {
+        const labels = [
+            '<span class="badge badge-yellow" style="margin-left:0.5rem;font-size:0.7rem">Almost Full 🔥</span>',
+            '<span class="badge badge-red" style="margin-left:0.5rem;font-size:0.7rem">High Demand</span>',
+            '<span class="badge badge-green" style="margin-left:0.5rem;font-size:0.7rem">Fast Filling</span>',
+            '<span class="badge badge-yellow" style="margin-left:0.5rem;font-size:0.7rem">Popular 🏆</span>',
+            ''
+        ];
+        const randomLabel = labels[Math.floor(Math.random() * labels.length)];
+        const isVirtual = t.is_virtual ? '<span style="color:var(--accent);font-size:0.7rem;margin-left:0.3rem">📍 Nearby</span>' : '';
+        return `
+        <div class="turf-card" id="tc_${t._id}" onclick="selectTurf('${t._id}','${t.turf_name}','${t.location}',${t.lat||0},${t.lng||0})">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>${t.turf_name}</strong>${isVirtual} ${randomLabel}
+              <p style="color:#aaa;font-size:0.85rem;margin-top:0.2rem">📍 ${t.location}</p>
+            </div>
+            <span class="badge badge-green">₹${t.price_per_hour||500}/hr</span>
+          </div>
+        </div>`;
+      }).join("");
+    }
+  } catch(e) { el.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`; }
+}
+
+async function selectTurf(id, name, loc, lat, lng) {
+  document.querySelectorAll(".turf-card").forEach(c => c.classList.remove("selected"));
+  document.getElementById("tc_"+id).classList.add("selected");
+  state.turf = {id, name, loc, lat, lng};
+  document.getElementById("slotSection").style.display = "block";
+  document.getElementById("slotLabel").innerHTML = `Available Slots — ${name} <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" class="btn-secondary btn-sm" style="margin-left:1rem;text-decoration:none">🧭 Start Navigation</a>`;
+  state.slot = null; document.getElementById("nextToSvcs").disabled = true;
+  await loadSlots(id);
+}
+
+async function loadSlots(turfId) {
+  const date = document.getElementById("match_date").value;
+  const targetHour = document.getElementById("match_time").value;
+  const grid = document.getElementById("slotGrid");
+  
+  if (!date) { grid.innerHTML = `<p style="color:#aaa">Select a date above first.</p>`; return; }
+  grid.innerHTML = `<p style="color:#888">⚡ Finding available slots near your time...</p>`;
+  
+  try {
+    const res = await apiCall(`/slots/?turf_id=${turfId}&date=${date}&target_hour=${targetHour}`);
+    const slots = res.slots || res;
+    
+    if (!slots || !slots.length) { 
+      // DEMO GUARANTEE: If still nothing, notify user but don't dead-end
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:2rem;border:1px dashed #444;border-radius:12px">
+          <p style="color:#aaa;margin-bottom:1rem">🔄 Generating slots for this date...</p>
+          <button class="btn-primary btn-sm" onclick="loadSlots('${turfId}')">Retry</button>
+        </div>`;
+      return; 
+    }
+    
+    let html = "";
+    
+    // Inject the fallback warning header if the native turf fired a blank
+    if (res.is_fallback) {
+      html += `
+        <div style="grid-column: 1 / -1; background: rgba(255, 69, 58, 0.1); border: 1px solid var(--danger); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
+          <h4 style="color: var(--danger); margin:0 0 0.4rem 0;">⚠️ Selected Turf is fully booked.</h4>
+          <p style="color: #ccc; font-size: 0.85rem; margin:0;">We found these highly-matched alternatives nearby:</p>
+        </div>
+      `;
+    } else {
+      const avail = slots.filter(s => s.status === "available").length;
+      const totalShown = slots.length;
+      html += `
+        <div style="grid-column:1/-1;margin-bottom:0.5rem;font-size:0.82rem;color:#aaa">
+          ✅ Showing <strong style="color:var(--accent)">${avail} available</strong> slots near your selected time (${totalShown} total shown)
+        </div>`;
+    }
+
+    html += slots.map(s => {
+      const isFallbackCard = s.turf_name ? true : false;
+      let badgeHtml = s.proximity_label 
+          ? `<span style="display:block;color:var(--accent);font-size:0.7rem;font-weight:700;margin-top:0.2rem">${s.proximity_label}</span>`
+          : "";
+          
+      // If cross-turf, show the alternate Turf Name & inject a swap command
+      let insideContent = `${s.label}<br><small>₹${s.price}</small>${badgeHtml}`;
+      if (isFallbackCard) {
+        insideContent = `
+          <strong style="color:#fff;font-size:0.9rem">${s.turf_name}</strong><br>
+          <span style="color:#aaa;font-size:0.8rem">${s.label} • ₹${s.price}</span>${badgeHtml}
+        `;
+      }
+
+      // Handle the onClick logic dynamically
+      const onClickStr = isFallbackCard 
+        ? `selectFallbackSlot('${s._id}', '${s.label}', ${s.price}, '${s.status}', '${s.turf_id}', '${s.turf_name}', '${s.turf_location}', ${s.turf_lat||0}, ${s.turf_lng||0})`
+        : `selectSlot('${s._id}','${s.label}',${s.price},'${s.status}')`;
+
+      return `
+      <div class="slot-btn ${s.status}" id="sl_${s._id}" onclick="${onClickStr}" style="${isFallbackCard ? 'border-color:var(--accent);' : ''}">
+        ${insideContent}
+      </div>`;
+    }).join("");
+    
+    grid.innerHTML = html;
+  } catch(e) { 
+    grid.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`; 
+  }
+}
+
+async function selectFallbackSlot(slotId, label, price, status, targetTurfId, targetTurfName, targetLoc, tLat, tLng) {
+  // First dynamically select the alternative Turf in the UI
+  selectTurf(targetTurfId, targetTurfName, targetLoc, tLat, tLng);
+  // Give it a tiny delay to render the native slots of this newly selected turf
+  setTimeout(() => {
+    // Force select that specific slot natively
+    selectSlot(slotId, label, price, status);
+  }, 300);
+}
+
+async function selectSlot(id, label, price, status) {
+  // DEMO MODE: If slot is booked/blocked, auto-find and jump to nearest available one
+  if (status !== "available") {
+    showToast("⚡ Slot unavailable — finding nearest available slot for you...", "info");
+    const availableBtn = [...document.querySelectorAll(".slot-btn.available")].find(b => b.id !== "sl_"+id);
+    if (availableBtn) {
+      // Parse out the data from the found slot button's onclick string
+      const onclickStr = availableBtn.getAttribute("onclick");
+      availableBtn.click(); // Just trigger it!
+    } else {
+      showToast("No available slots found. Try a different date.", "error");
+    }
+    return;
+  }
+  
+  // Attempt to lock it immediately
+  try {
+    await apiCall(`/slots/${id}/lock`, "POST");
+  } catch(e) {
+    showToast(e.message, "error");
+    loadSlots(state.turf.id);
+    return;
+  }
+  
+  document.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
+  const slotEl = document.getElementById("sl_"+id);
+  if (slotEl) slotEl.classList.add("selected");
+  state.slot = {id, label, price}; state.slotPrice = price;
+  document.getElementById("nextToSvcs").disabled = false;
+  showToast("Slot locked for 3 minutes! ⏳");
+}
+
+// ── STEP 5: Summary & Pay ───────────────────────────────────────────────
+function goToPayment() {
+  let svcTotal = 0, svcs = [];
+  document.querySelectorAll(".svc:checked").forEach(cb => { svcTotal += parseInt(cb.dataset.price); svcs.push(cb.value); });
+  state.svcTotal = svcTotal; state.services = svcs;
+  const total = state.slotPrice + svcTotal; state.total = total;
+  const req = parseInt(document.getElementById("req_players").value);
+
+  document.getElementById("sumTurf").innerText    = state.turf.name;
+  document.getElementById("sumSlot").innerText    = state.slot.label;
+  document.getElementById("sumTeam").innerText    = document.getElementById("team_name").value;
+  document.getElementById("sumSvcs").innerText    = svcs.join(", ") || "None";
+  document.getElementById("sumTurfCost").innerText = `₹${state.slotPrice}`;
+  document.getElementById("sumSvcCost").innerText  = `₹${svcTotal}`;
+  document.getElementById("sumTotal").innerText    = `₹${total}`;
+  document.getElementById("perPlayerAmt").innerText = `₹${(total/req).toFixed(2)}`;
+  setStep(5);
+}
+
+function selectPay(mode) {
+  state.payMode = mode;
+  document.getElementById("pm-single").classList.toggle("active", mode==="single");
+  document.getElementById("pm-split").classList.toggle("active",  mode==="split");
+  document.getElementById("splitNote").style.display = mode==="split" ? "block" : "none";
+}
+
+async function confirmBooking() {
+  const btn = document.getElementById("payBtn");
+  const err = document.getElementById("payErr");
+  err.style.display = "none";
+  showLoading(btn, true);
+  const user = getUser();
+  const date = document.getElementById("match_date").value;
+  const time = document.getElementById("match_time").value;
+
+  try {
+    // 1. Update team with turf/slot info
+    // 2. Create booking
+    const bookRes = await apiCall("/bookings/create", "POST", {
+      turf_id: state.turf.id, slot_id: state.slot.id, date,
+      services: state.services, total_cost: state.total,
+      payment_method: state.payMode, team_id: state.teamId,
+      player_ids: [user.id]
+    });
+    state.bookingId = bookRes.booking_id;
+
+    if (state.payMode === "single") {
+      // Single pay: direct confirm
+      const payRes = await apiCall("/payments/", "POST", {
+        booking_id: state.bookingId, method: "single",
+        total_amount: state.total, player_ids: [user.id]
+      });
+      showToast(`Booking confirmed! TXN: ${payRes.txn_id} 🎉`);
+      setTimeout(() => window.location.href = `chat.html?team_id=${state.teamId}`, 1200);
+    } else {
+      // Split: get all players
+      const team = await apiCall(`/teams/${state.teamId}`);
+      const playerIds = team.players || [user.id];
+      const payRes = await apiCall("/payments/", "POST", {
+        booking_id: state.bookingId, method: "split",
+        total_amount: state.total, player_ids: playerIds
+      });
+      showToast("Split payment created — forwarding to payment page…");
+      setTimeout(() => {
+        window.location.href = `payment_split.html?booking_id=${state.bookingId}&team_id=${state.teamId}`;
+      }, 1000);
+    }
+  } catch(e) {
+    err.innerText = e.message; err.style.display = "block";
+    showLoading(btn, false, "✅ Confirm & Pay");
+  }
+}
+</script>
+</body>
+</html>
